@@ -1,0 +1,1326 @@
+\chapter{\label{chap:neural}Artificial neural networks}
+
+
+Artificial neural networks (ANNs) are powerful machine learning methods. 
+ANNs have been influential throughout the 
+development of fields like computer science,
+artificial intelligence and cognitive science.
+Throughout their history,
+ANNs enjoyed times of popularity and times that they were out of fashion.
+Currently,
+we are in one of their popular times,
+mainly thorough the methods known as \emph{deep learning}.%
+\sidenote{Deep learning, as it is commonly understood,
+  is probably more than only use of neural networks.
+  However, ANNs are at the center of the methods
+  that are collectively called deep learning.
+}
+In this lecture,
+we will be discussing some of the basic concepts on ANNs.
+We will build on these in later lectures
+as we continue studying various methods relevant to NLP.
+
+
+\begin{marginfigure}
+  \centering
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{biological-neuron}
+  \begin{tikzpicture}
+    \node[draw=none,fill=none] (picture)
+      {\includegraphics[width=\linewidth] {figures/neuron}};
+    \node[anchor=north east] at (picture.north east) {Axon terminal};
+    \node[yshift=-3mm] at (picture.center) {Axon};
+    \node[anchor=west,xshift=-9mm,yshift=3mm] at (picture.center) {Soma};
+    \node[anchor=north west,xshift=7mm] at (picture.north west) {Dendrite};
+  \end{tikzpicture}
+  \caption{\label{fig:biologial-neuron}%
+    A schematic drawing of a biological neuron
+    (image source: \href{https://en.wikipedia.org/wiki/Neuron}{Wikipedia}).
+  }
+\end{marginfigure}
+ANNs are inspired by (networks of) biological neurons.
+Neurons (depicted in Figure~\ref{fig:biologial-neuron}) 
+are the building blocks of a biological nervous system.
+In typical operation a neuron (with a lot of simplification) receives 
+signals from other neurons at its dendrites,
+at connection points that are called synapses.
+Depending on the inputs, a neuron either `fires' of stays inactive.
+When it fires,
+an electrical signal is passed thorough it axon,
+which is passed to the neurons connected to its axon tendrils.
+The property of nervous systems that are probably most relevant for ANNs
+is that they are made of simple units which perform a simple computation.
+However as a whole the system can perform very complex computations.
+
+For most modern ANNs systems,
+the connection with biological neurons is just a point of inspiration.
+We do not take ANNs as models of animal neural networks.
+ANNs are powerful machine learning methods.
+As we will soon see, they share a lot with the simple
+machine learning methods (with no reference to the biological systems)
+we discussed earlier.
+
+\section{Revisiting perceptron and logistic regression}
+
+\begin{marginfigure}
+  \centering
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-recap}
+  \begin{tikzpicture}[on grid, node distance=8mm,thick,blue!40!black,>=stealth]
+    \tikzstyle{neuron}=[draw,circle,minimum size=8mm,inner sep=0pt];
+    \tikzstyle{hidden}=[neuron,fill=black!25,color=black!25];
+    \node[neuron,draw] (perc) at (0,0) {%
+      \tikzset{external/export next=false}%
+      \tikz{\draw[very thick]
+        (0,0) -- (2mm,0) -- (2mm,6mm) -- (4mm, 6mm);}
+    };
+    \node[left=20mm of perc] (x2)  {$x_{2}$};
+    \node[above of=x2] (x1)  {$x_{1}$};
+    \node[below of=x2] (dots)  {\vdots};
+    \node[below of=dots] (xn)  {$x_{m}$};
+    \draw[->] (x1) -- (perc) node[midway, sloped, below] {$w_{1}$};;
+    \draw[->] (x2) -- (perc) node[midway, sloped, below] {$w_{2}$};;
+    \draw[->] (xn) -- (perc) node[midway, sloped, below] {$w_{m}$};;
+    \node[right=15mm of perc] (y) {$y$};
+    \draw[->] (perc) -- (y);
+    \node[above of=x1] (x0) {$x_{0} = 1$};
+    \draw[->] (x0) -- (perc) node[midway, sloped, below] {$w_{0}$};
+  \end{tikzpicture}
+  \caption{\label{fig:perceptron-recap}%
+    A schematic representation of perceptron.
+  }
+\end{marginfigure}
+Historically, perceptron is the precursor of the neural networks.
+Remember that perceptron computes a weighted sum of its inputs,
+passes the sum through a step function,
+and it is either fires (output $+1$), or does not (output $-1$).
+Figure~\ref{fig:perceptron-recap} shows a schematic description
+of this process.
+In principle, one can build a network of perceptrons, 
+resulting in more powerful predictors.
+However, learning in such a complex networks of perceptrons is not practical.
+Because of the fact the step function used as the \emph{activation} function
+is not suitable for learning in more complex networks%
+The reason for this has to do with the fact
+that the derivative of the step function is \num{0} almost everywhere.
+As a result, we cannot use gradient descent for training perceptron,
+we need a custom algorithm to train perceptron.
+
+
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}
+      \tikzsetnextfilename{logistic-regression-recap}
+      \begin{tikzpicture}[on grid, node distance=8mm,thick,blue!40!black,>=stealth]
+        \tikzstyle{neuron}=[draw,circle,minimum size=8mm,inner sep=0pt];
+        \tikzstyle{hidden}=[neuron,fill=black!25,color=black!25];
+        \node[neuron,draw] (perc) at (0,0) {%
+          \tikzset{external/export next=false}%
+%          \tikz{\draw[very thick]
+%            (0,0) -- (2mm,0) -- (2mm,6mm) -- (4mm, 6mm);}
+           \tikz{\draw[inner sep=0pt,thick,x=1mm,y=4mm,%
+                    domain=-2:2,smooth,variable=\x,blue]
+                plot  ({\x},{1/(1+exp(-3*\x))});
+           }
+        };
+        \node[left=20mm of perc] (x2)  {$x_{2}$};
+        \node[above of=x2] (x1)  {$x_{1}$};
+        \node[below of=x2] (dots)  {\vdots};
+        \node[below of=dots] (xn)  {$x_{m}$};
+        \draw[->] (x1) -- (perc) node[midway, sloped, below] {$w_{1}$};;
+        \draw[->] (x2) -- (perc) node[midway, sloped, below] {$w_{2}$};;
+        \draw[->] (xn) -- (perc) node[midway, sloped, below] {$w_{m}$};;
+        \node[right=15mm of perc] (y) {$P(y)$};
+        \draw[->] (perc) -- (y);
+        \node[above of=x1] (x0) {$x_{0} = 1$};
+        \draw[->] (x0) -- (perc) node[midway, sloped, below] {$w_{0}$};
+      \end{tikzpicture}
+  \caption{\label{fig:logistic-regression-recap}%
+    A schematic representation of logistic regression.
+  }
+\end{marginfigure}
+We can view logistic regression as a `soft' version of perceptron.
+To demonstrate the similarities,
+Figure~\ref{fig:logistic-regression-recap} 
+demonstrates logistic regression 
+similar to the perceptron in Figure~\ref{fig:perceptron-recap}.
+In words, we get a weighted sum of the inputs,
+pass the sum through the logistic sigmoid function
+and outputs a numeric value in range $(0, 1)$.
+Since the function (and, hence, the prediction error)
+we use in logistic regression has non-zero derivative 
+we can use gradient descent to fit the paramters of the model.
+In fact, it is very common to use unit in artificial neural networks
+that are identical to logistic regression.
+
+Both the perceptron and the logistic regression
+are linear classifiers.
+Although they can solve non-linear classification problems
+through use of non-linear basis functions,
+they can only solve problems that are linearly separable in their basic form.
+Before introducing ANNs, we will first discuss non-linearity.
+
+\section{Linear separability and non-linearity}
+
+\begin{marginfigure}
+  \centering
+  \tikzsetnextfilename{xor-linear-sep}
+%  \tikzset{external/export next=false}%
+  \begin{tikzpicture}[x=20mm,y=20mm]
+    \draw[gray!30,step=1] (0,0) grid (1,1);
+    \draw[->,shorten >=-5mm] (0,0) -- (0, 1) node[anchor=east,yshift=5mm] {$x_{2}$};
+    \draw[->,shorten >=-5mm] (0,0) -- (1, 0) node[anchor=north,xshift=5mm] {$x_{1}$};
+    \node[anchor=north east]  at (0,0) {\num{0}};
+    \node[anchor=north,yshift=-1ex]  at (1,0) {\num{1}};
+    \node[anchor=east,xshift=-1ex]  at (0,1) {\num{1}};
+    \node[blue,fill=white,circle,inner sep=0pt,draw]
+      (x00) at (0,0) {$\mathbf{-}$};
+    \node[red,fill=white,circle,inner sep=0pt,draw]
+      (x01) at (0,1) {$\mathbf{+}$};
+    \node[red,fill=white,circle,inner sep=0pt,draw]
+      (x10) at (1,0) {$\mathbf{+}$};
+    \node[blue,fill=white,circle,inner sep=0pt,draw]
+      (x11) at (1,1) {$\mathbf{-}$};
+  \end{tikzpicture}
+  \caption{\label{fig:xor-linear-sep}%
+    XOR function as an example of non-linear separability.
+    The inputs are $x_{1}$ and $x_{2}$, 
+    and the label $-$ used
+    for cases where  $x_{1} \;\text{xor}\; x_{2}$ is  $0$,
+    and the label $+$ used  
+    for cases where  $x_{1} \;\text{xor}\; x_{2}$ is $1$.
+  }
+\end{marginfigure}
+Two classes are said to be linearly separable
+if there is a linear boundary between all instances
+that belong to different classes.
+Linear separability is an important concept in theory of machine learning,
+and as we already saw some examples,
+linearly separable problems tend to be easier to solve.
+A simple, prototypical example of non-linearly separable problem is 
+the logical XOR function (depicted in Figure~\ref{fig:xor-linear-sep}).
+Remember that XOR of two logical (or binary) variables is true (or $1$) if 
+the values differ, and $1$ otherwise.
+The interesting part for us is that the XOR problem is a very simple
+example of a linearly-non separable problem.
+Note that there is not line in Figure~\ref{fig:xor-linear-sep}
+that separates the classes (output of the XOR function).%
+\sidenote{In fact, the fact that perceptron algorithm cannot 
+  solve the XOR problem has been one of the reasons
+  that caused a (rather unfounded) disappointment
+  and loss of interest after its first introduction in 1950's.
+}
+
+\begin{margintable}
+  \caption{\label{tbl:xor-solution}%
+    A solution to the XOR problem by introducing a non-linear basis function.
+  }
+  ~\\[1mm]
+  \centering
+  \begin{tabular}{SSS}
+    \toprule
+    {$x_{1}$} &
+    {$x_{2}$} &
+    {$ x_{1} + x_{2} - 2x_{1}x_{2} $}\\
+    \midrule
+    0 & 0 & 0 \\
+    0 & 1 & 1 \\
+    1 & 0 & 1 \\
+    1 & 1 & 0 \\
+    \bottomrule
+  \end{tabular}
+\end{margintable}
+We already discussed how to turn a linear classifier to a non-linear one.
+All we need to do is introduce appropriate non-linear basis functions.
+For example,
+if we introduce the basis function $\Phi(\vect{x}) = x_{1}x_{2}$
+as an additional input,
+we can easily find coefficients of a linear model that solves the XOR problem.
+Table~\ref{tbl:xor-solution} shows a solution to XOR problem
+with this basis function.
+The output of the solution is the XOR value,
+for perceptron, for example, adding a intercept of $-0.5$ would
+return negative sums for one class and positive sums for the other,
+allowing perceptron to solve this problem.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{xor-bf-solution-2d}
+  \begin{tikzpicture}
+     \begin{axis}[width=1.1\linewidth,
+        xmin=-0.5,xmax=1.5,
+        ymin=-0.5,ymax=1.5,
+        xlabel=$x_{1}$,
+        ylabel=$x_{2}$,
+        xtick={0,1},
+        ytick={0,1},
+        grid=major,
+       ]
+       \addplot [thick,domain=-1:0.499,samples=200] {(0.49-x)/(1-2*x)};
+       \addplot [thick,domain=0.501:2,samples=200] {(0.49-x)/(1-2*x)};
+    \node[blue,fill=white,circle,inner sep=0pt,draw]
+        (x00) at (0,0) {$\mathbf{-}$};
+      \node[red,fill=white,circle,inner sep=0pt,draw]
+        (x01) at (0,1) {$\mathbf{+}$};
+      \node[red,fill=white,circle,inner sep=0pt,draw]
+        (x10) at (1,0) {$\mathbf{+}$};
+      \node[blue,fill=white,circle,inner sep=0pt,draw]
+        (x11) at (1,1) {$\mathbf{-}$};
+     \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:xor-solution}%
+    A visualization of the solution in table~\ref{tbl:xor-solution}.
+    Note that the discriminant function is discontinuous at $x_{1} =0.5$. 
+  }
+\end{marginfigure}
+If we map the discriminant line to the original two dimensional input space,
+we get a non-linear discriminant.
+Figure~\ref{fig:xor-solution} shows the discriminant line,
+since the above solution results in a discontinuous function at $x_{1} = 0.5$,
+we have two curves in the plot.
+The result however, is a solution to the XOR problem.
+
+Another way to look at what we did with adding the basis function
+$\Phi(\vect{x}) = x_{1}x_{2}$ as a predictor to our linear classifier
+is to map the original input space (non-linearly)
+into a 3-dimensional space.
+Where the each dimension is the terms in the linear equation.
+Hence, as well as the original input $x_{1}$ and $x_{2}$,
+we have another dimension $x_{1} x_{2}$.
+Figure ~\ref{fig:xor-solution-3d} demonstrates this view.
+Note that in the resulting 3-dimensional space
+the classes become linearly separable.
+The red and blue dots in the plot can be separated by a plane.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{xor-bf-mapping-3d}
+  \begin{tikzpicture}
+     \begin{axis}[width=1.1\linewidth,
+       view={50}{20},
+        xlabel=$x_{1}$,
+        ylabel=$x_{2}$,
+        xmin=-1,xmax=2,
+        ymin=-1,ymax=2,
+        zlabel=$x_{1} x_{2}$,
+        xtick={0,1},
+        ytick={0,1},
+        grid=major,
+        z buffer=sort,
+       ]
+       \addplot3[only marks, blue]
+          coordinates {(0, 0, 0) (1, 1, 1)};
+       \addplot3[only marks, red]
+          coordinates {(0, 1, 0) (1, 0, 0)};
+%       \addplot3 [surf,domain=-2:3,
+%          mesh/ordering=y varies,
+%          colormap/PuBu,
+%       ] {(x + y - 0.5)/2};
+     \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:xor-solution-3d}%
+    Another, three-dimensional, visualization of the solution
+    in table~\ref{tbl:xor-solution}.
+    Red points mark the positive class ($x_{1} \;\text{xor}\; x_{2} = 1$)
+    and blue points mark the negative class  ($x_{1} \;\text{xor}\; x_{2} = 1$).
+  }
+\end{marginfigure}
+
+In general, as we also saw with the polynomial regression example,
+a non-linear classification problem can be solved
+with a linear classifier using non-linear basis functions.
+The multiplicative function we used above is in no way spacial.
+There are many non-linear basis function that one can use.
+In fact, we will see that we can also solve the XOR problem
+using yet another non-linear function.
+However, some non-linear finding useful but minimal
+(we do not want the too many features, and their associated parameters),
+not always trivial.
+Finding/selecting correct non-linear basis functions to be used
+with linear models is often called \emph{feature engineering}. 
+We will see that one of the advantages of the neural models is
+reducing this effort
+by finding the right sort of transformations automatically.
+
+Before finally introducing the neural networks,
+one last clarification is in order.
+We often describe non-linearities with abstract functions.
+For the newcomers to the field, however,
+it is often unclear what does non-linearity mean in real-world. 
+A common case of non-linearity is the simply a non-linear 
+relation between the predictors and the outcome.
+A common example for this case is the age and various cognitive abilities,
+and as a result success in tasks requiring those abilities.
+When viewed longitudinally, cognitive abilities
+increase during childhood and youth,
+however later on, they start to decline with aging.
+As a result, this so-called U-shaped relation cannot be
+expressed with linear models.
+The second common case is interaction.
+Linear models treat the effects of the predictors additive.
+The effects add up independently of other predictors.
+There are many real-world examples where this is not the case.
+For example, in sentiment analysis the word `good' is likely
+be a good predictor of the positive sentiment,
+while the word `bad' would likely to indicate the negative sentiment.
+However, when combined with word `not',
+the effects reverse.
+A linear model adding effects of `not' and `good' or `bad',
+would not be able to model this interaction.
+The multiplicative basis functions, like the one in our example,
+is often a good way to handle these type of non-linear interactions.
+
+\section{Multi-layer perceptron}
+
+
+\begin{marginfigure}
+  \centering
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{mlp}
+  \xdef\layersep{17.5mm}
+  \begin{tikzpicture}[shorten >=1pt,->,node distance=\layersep]
+    \tikzstyle{every pin edge}=[<-,shorten <=1pt]
+    \tikzset{neuron/.style={circle,fill=black!25,%
+                        minimum size=12pt,inner sep=0pt,draw=black!50}
+    }
+
+    \foreach \name / \y in {1,...,4}
+      \node (I-\name) at (0,-\y) {$x_{\y}$};
+
+    \foreach \name / \y in {1,...,3}
+      \path[yshift=-6mm] node[neuron] (H-\name) at (\layersep,-\y ) {};
+
+    \foreach \name / \y in {1,...,3}
+      \node[neuron,pin={[pin edge={->}]right:y}, xshift=-5mm, right of=H-2] (O) {};
+
+    \foreach \source in {1,...,4}
+      \foreach \dest in {1,...,3}
+        \path (I-\source) edge (H-\dest);
+
+    \foreach \source in {1,...,3}
+      \draw (H-\source) -- (O);% node[midway,sloped,above] {$h_{\source}$};
+
+    \node[text width=4em,text centered,above of=I-1, node distance=5mm]
+      (il) {Input};
+    \node[text width=4em, text centered, right of=il] (hl) {Hidden\phantom{p}};
+    \node[text width=4em, text centered, right of=hl,xshift=-5mm] {Output};
+  \end{tikzpicture}
+  \caption{\label{fig:mlp}%
+    A multi-layer perceptron.
+  }
+\end{marginfigure}
+The simplest neural network architecture is called
+the \emph{multi-layer perceptron} (MLP).
+As the name indicates,
+the network is built by multiple layers of
+perceptron-like units.
+Figure~\ref{fig:mlp} depicts an MLP with a single hidden layer.
+The information flow in the network is \emph{feed forward},
+the inputs are connected to the hidden layer,
+the hidden layer outputs are connected to the output layer.
+There are no backward connections,
+or connections between the units in the same layer.
+The layers are also \emph{fully connected}:
+every unit in a layer is connected to every unit in the next one.
+The networks we will discuss in this lecture has these two properties.
+In later lectures we will see networks with sparse connectivity
+between the units, and ones that are with non-feed forward connections. 
+
+
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}
+      \tikzsetnextfilename{single-neuron-in-mlp}
+      \begin{tikzpicture}[on grid,
+                          node distance=10mm,
+                          thick,blue!40!black,
+                          >=stealth]
+        \tikzstyle{neuron}=[draw,circle,minimum size=8mm,inner sep=0pt];
+        \tikzstyle{hidden}=[neuron,fill=black!25,color=black!25];
+        \node[neuron,draw] (perc) at (0,0) {
+          \begin{tabular}{cc}
+            $\sum$ &
+            $f(\cdot)$\\
+          \end{tabular}
+        };
+        \draw (perc.south) -- (perc.north);
+        \node[left=20mm of perc] (x2)  {$x_{2}$};
+        \node[above of=x2] (x1)  {$x_{1}$};
+        \node[below of=x2] (dots)  {\vdots};
+        \node[below of=dots] (xn)  {$x_{m}$};
+        \draw[->] (x1) -- (perc) node[midway, sloped, below] {$w_{1}$};;
+        \draw[->] (x2) -- (perc) node[midway, sloped, below] {$w_{2}$};;
+        \draw[->] (xn) -- (perc) node[midway, sloped, below] {$w_{m}$};;
+        \node[right=20mm of perc] (y) {$y$};
+        \draw[->] (perc) -- (y);
+        \node[above of=x1] (x0) {$x_{0} = 1$};
+        \draw[->] (x0) -- (perc) node[midway, sloped, below] {$w_{0}$};
+      \end{tikzpicture}
+  \caption{\label{fig:artificial-neuron}%
+    A depiction of a single unit in an artificial neural network.
+  }
+\end{marginfigure}
+A single unit in an ANN is functions similarly to the linear classifiers.
+The unit's output is simply a function $f(\cdot)$
+of the weighted sum of its inputs:
+\begin{equation*}
+  y = f\left(\sum_{j}^{m} w_{j} x_{j}\right) = f(\vect{w}\vect{x})
+\end{equation*}
+The function $f(\cdot)$, called \emph{activation function},
+is typically a continuous non-linear function.
+A few examples of common activation functions used in neural networks
+are shown in Figure~\ref{fig:activation-functions}.
+
+\begin{marginfigure}
+  \centering
+%  \tikzset{external/export next=false}%
+  \tikzsetnextfilename{nn-activation-function}
+  \begin{tikzpicture}
+    \node[inner sep=0pt] (sigmoid) 
+    {
+      \tikzset{external/export next=false}
+      \tikz[x=10mm, y=10mm,
+        show background rectangle,
+        background rectangle/.style={rounded corners, fill=gray!5},
+      ] {%
+        \draw[<->,shorten >=-1mm,shorten <=-1mm] (-2, 0) -- (2, 0);
+        \draw[<->,shorten >=-1mm,shorten <=-1mm] (0, -1) -- (0, 1);
+        \draw[thick,domain=-2:2,smooth,variable=\x,blue]
+          plot ({\x},{1/(1+exp(-4*\x))});
+        \node[font=\scriptsize,xshift=-0.5mm,anchor=east] at (0,1)
+          {$f(x) = \dfrac{1}{1 + e^{-x}}$};
+        \node[font=\scriptsize,anchor=south] at (2,0) {$x$};
+        \node[anchor=south, yshift=3mm] at (0,1)
+          {(logistic) sigmoid};
+      }
+    };
+    \node[inner sep=0pt,below=1mm of sigmoid] (tanh) 
+    {
+      \tikzset{external/export next=false}
+      \tikz[x=10mm, y=10mm,
+        show background rectangle,
+        background rectangle/.style={rounded corners, fill=gray!5},
+      ] {%
+        \draw[<->,shorten >=-1mm,shorten <=-1mm] (-2, 0) -- (2, 0);
+        \draw[<->,shorten >=-1mm,shorten <=-1mm] (0, -1) -- (0, 1);
+        \draw[thick,domain=-2:2,smooth,variable=\x,blue]
+          plot ({\x},{tanh(\x)});
+        \node[font=\scriptsize,xshift=-0.5mm,anchor=east] at (0,1)
+          {$f(x) = \dfrac{e^{2x} - 1}{e^{2x} + 1}$};
+        \node[font=\scriptsize,anchor=south] at (2,0) {$x$};
+        \node[anchor=south, yshift=3mm] at (0,1)
+          {hyperbolic tangent (tanh)};
+      }
+    };
+    \node[inner sep=0pt,below=1mm of tanh] (relu) 
+    {
+      \tikzset{external/export next=false}
+      \tikz[x=10mm, y=10mm,
+        show background rectangle,
+        background rectangle/.style={rounded corners, fill=gray!5},
+      ] {%
+        \draw[<->,shorten >=-1mm,shorten <=-1mm] (-2, 0) -- (2, 0);
+        \draw[<->,shorten >=-1mm,shorten <=-1mm] (0, -1) -- (0, 1);
+        \draw[thick,blue] (-1,0) -- (0,0);
+        \draw[thick,blue] (0,0) -- (2,1);
+        \node[font=\scriptsize,xshift=-0.5mm,anchor=east] at (0,1)
+          {$f(x) = \max(0, x)$};
+        \node[font=\scriptsize,anchor=south] at (2,0) {$x$};
+        \node[anchor=south, yshift=3mm] at (0,1)
+          {rectified linear unit (relu)};
+      }
+    };
+  \end{tikzpicture}
+  \caption{\label{fig:activation-functions}%
+    Common activation functions for neural networks.
+  }
+\end{marginfigure}
+The first activation function shown in Figure~\ref{fig:activation-functions}
+is the now familiar logistic function.
+The second one is another, s-shaped (sigmoid) function,
+hyperbolic tangent (tanh).
+There two functions has been popular since early on
+in neural network literature.
+The last one, rectified linear unit, or ReLU,
+is a piecewise linear function that became popular relatively recently.
+Common to these functions are that they are differentiable,
+and have non-zero derivatives (in the range they are intended to operate). 
+In principle,
+one can use any differentiable function can be used.
+However, some activation functions facilitate learning,
+and those are used more often in practice.
+
+As hinted above,
+the choice of activation functions is rather flexible.
+However, this is true for the hidden layers.
+On the output layer,
+the task we want to solve restricts the choices.
+Although not exclusive,
+(logistic) sigmoid is most popular choice of activation function
+for binary classification.
+As you would remember from the logistic regression,
+this allows us to interpret the output of the model
+as the probability of the positive class conditioned on the input.
+For multi-class classification,
+the \emph{softmax} function we introduced earlier is a common choice.
+Remember that softmax is is a generalization of the logistic sigmoid defined as,
+\begin{equation*}
+  P(y=k\given{}x) = 
+    \frac{e^{\vect{w_{k}}\vect{x}}}
+         {\sum_{j} e^{\vect{w_{j}}\vect{x}}} .
+\end{equation*}
+Note that the above means that we have one output unit
+for each class label.
+And the formula above,
+makes sure that the outputs of all units sum to one.
+
+Although we will mostly discuss neural networks in context of classification,
+they can also be used for regression problems.
+In this case, we typically use identity function as the activation function.
+The hidden layers still help with finding a non-linear solution,
+and the we can view the final output layer,
+which simply outputs a weighted sum of its input without
+any non-linear activation function,
+as scaling the internal representations built by the 
+network to the correct scale/unit of the output variable.
+
+\section{Forward propagation in neural networks}
+
+We now are ready to fully define the output of a feed-forward network.
+We will do this through the simple example presented
+in Figure~\ref{fig:example-ff-2x2}.
+Note that this model has two predictors
+and two output variables to predict.
+These choices are often based on the problem and the data at hand.
+The choices about the hidden units is rather free.
+For this particular example,
+we have a single hidden layer with two units.
+\begin{marginfigure}
+  \centering
+  \def\layersep{2cm}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{example-2x2-mlp}
+  \begin{tikzpicture}[shorten >=1pt,->,node distance=\layersep,blue!40!black]
+    \tikzstyle{every pin edge}=[<-,shorten <=1pt]
+    \tikzstyle{neuron}=[circle,fill=black!25,minimum size=17pt,inner sep=0pt,draw=black!50 ]
+
+    \node (i1) {$x_{1}$};
+    \node[below of=i1] (i2) {$x_{2}$};
+
+    \node[neuron,right of=i1] (h1) {$h_{1}$};
+    \node[neuron,right of=i2] (h2) {$h_{2}$};
+    \node[neuron,right of=h1] (o1) {$y_{1}$};
+    \node[neuron,right of=h2] (o2) {$y_{2}$};
+    \node[draw,above=3mm of h1] {$f()$};
+    \node[draw,above=3mm of o1] {$g()$};
+
+    \draw (i1) -- (h1)
+      node[above,midway,sloped] {$w_{11}$};
+    \draw (i1) -- (h2)
+      node[xshift=-5mm,above,midway,sloped] {$w_{12}$};
+    \draw (i2) -- (h1)
+      node[xshift=-5mm,above,midway,sloped] {$w_{21}$};
+    \draw (i2) -- (h2)
+      node[above,midway,sloped] {$w_{22}$};
+
+    \draw (h1) -- (o1)
+      node[above,midway,sloped] {$v_{11}$};
+    \draw (h2) -- (o1)
+      node[xshift=-5mm,above,midway,sloped] {$v_{21}$};
+
+    \draw (h1) -- (o2)
+      node[xshift=-5mm,above,midway,sloped] {$v_{12}$};
+    \draw (h2) -- (o2)
+      node[above,midway,sloped] {$v_{22}$};
+
+  \end{tikzpicture}
+  \caption{\label{fig:example-ff-2x2}%
+    A simple multi-layer perceptron.
+    $f(\cdot)$ and $g(\cdot)$ are the activation functions
+    used in hidden and the output layers respectively.
+    For the sake of simplicity,
+    we do not have an intercept (bias term) in this model.
+  }
+\end{marginfigure}
+
+To calculate the output values,
+it is generally more convenient, and easy to understand,
+to break down the computations involved into pieces.
+In this network,
+we first calculate the weighted sum of the input variables
+for each hidden unit, and apply the activation function $f(\cdot)$.
+Then, the units in the output layer takes the output of the hidden layer,
+compute the weighted sum, and apply the output activation function $g(\cdot)$.
+More formally,
+\begin{equation*}
+  h_{j} = f\left(\sum_{i} w_{ij}x_{i}\right)
+    \quad\text{and}\quad
+  y_{k} = g\left(\sum_{j} v_{jk}h_{j}\right) .
+\end{equation*}
+Note that the input to the activation functions are simply dot products
+of input vectors and the corresponding weight vectors.
+If we write the weights for each layer as matrices,
+\begin{equation*}
+  \vect{W} = \begin{bmatrix}
+    w_{11} & w_{12} \\
+    w_{21} & w_{22} \\
+  \end{bmatrix}
+    \quad\text{and}\quad
+  \vect{V} = \begin{bmatrix}
+    v_{11} & v_{12} \\
+    v_{21} & v_{22} \\
+  \end{bmatrix}
+\end{equation*}
+we can simplify our notation with,
+\begin{equation*}
+  \vect{h} =  f(\vect{W}^{T} \vect{x}) = f(\vect{x}^{T} \vect{W})
+    \quad\text{and}\quad
+  \vect{y} =  g(\vect{V}^{T} \vect{h}) = g(\vect{h}^{T} \vect{V})
+\end{equation*}
+where, following the convention,
+we consider input and hidden vectors as column vectors.
+What is important to realize here is that,
+the network computes a series of matrix-vector products,
+followed by elementwise application of the activation functions.
+Viewing inputs and outputs of each layer as vectors,
+function of each layer is performing a (non-linear) transformation
+of its input.
+
+It is also important to realize that the function 
+the whole network implements can be represented
+by composition of the functions at each layer.
+Putting the above together,
+\begin{equation*}
+  \vect{y} = g\left(f(\vect{x}^{T} \vect{W}) V\right) .
+\end{equation*}
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}%
+  \tikzsetnextfilename{xor-solution-mlp}
+	\begin{tikzpicture}[shorten >=1pt,->,blue!40!black,minimum size=17pt,inner sep=0pt]
+		\tikzstyle{every pin edge}=[<-,shorten <=1pt]
+		\tikzstyle{neuron}=[circle,fill=black!25,draw=black!50 ]
+		\tikzstyle{edgelab}=[above,midway,sloped,font=\footnotesize,yshift=-1mm]
+		
+		\matrix(m)[matrix of math nodes,row sep=5mm, column sep=15mm,%
+			ampersand replacement=\&]
+		{ 
+      |(i1)| {x_{1}} \& |(h1)[neuron]| {h_{1}} \& \\
+				\&  \& |(o)[neuron]| {y} \\
+      |(i2)| {x_{2}} \& |(h2)[neuron]| {h_{2}} \& \\
+		};
+
+    \node[draw,above=3mm of h1,font=\scriptsize]
+      {$f(z) = z^{2}$};
+    \node[draw,above=10mm of o,font=\scriptsize]
+      {$g(z) = \frac{1}{1 + e^{-z}}$};
+    \node[below=3mm of i2,xshift=10mm] (b1) {$1$};
+    \node[below=3mm of h2,xshift=10mm] (b2) {$1$};
+
+    \draw[->] (b1) -- (h1) node[edgelab,xshift=5mm]{\num{-2}};
+    \draw[->] (b1) -- (h2) node[edgelab,below,yshift=1mm]{\num{0}};
+    \draw[->] (b2) -- (o) node[edgelab]{\num{3}};
+
+    \draw (i1) -- (h1) node[edgelab]{\num{1}};
+    \draw (i1) -- (h2) node[xshift=-5mm,edgelab]{\num{1}};
+    \draw (i2) -- (h1) node[xshift=-5mm,edgelab]{\num{1}};
+    \draw (i2) -- (h2) node[edgelab]{\num{1}};
+    \draw (h1) -- (o) node[edgelab]{\num{-1}};
+    \draw (h2) -- (o) node[edgelab]{\num{-1}};
+	\end{tikzpicture}
+  \caption{\label{fig:mlp-xor}%
+    An MLP for solving the XOR problem.
+    The inputs at the bottom that are always \num{1} are intercept terms.
+  }
+\end{marginfigure}
+To make this discussion more concrete,
+we will go through a simple example,
+that intends to solve the XOR problem.
+The network is schematically described in Figure~\ref{fig:mlp-xor}.
+For the sake of example,
+the weights (marked on the edges) are determined manually.
+Normally, we want to learn these weights.
+Since we have a binary classification problem,
+we have the logistic sigmoid activation in the output.
+For the hidden layer,
+we use square function as activation,
+which is unusual in real applications,
+but makes hand-calculations easier.
+
+Now, we go through calculations of input vector $(0,1)$ explicitly.
+\begin{align*}
+  h_{1} &=  f(1 \times x_{1} + 1 \times x_{2} - 2) = (0 + 1 - 2)^{2} = 1\\
+  h_{2} &=  f(1 \times x_{1} + 1 \times x_{2} + 0) = (0 + 1 + 0)^{2} = 1\\
+  y &= g(-1 \times h_{1} -1 \times h_{2} + 3) = \frac{1}{1+ e^{1}} = \num{0.7310585786300049}\\
+\end{align*}
+The other can be calculated similarly,
+or we can write down our weight matrix, and multiply with the input matrix.
+\begin{align*}
+  \vect{h} &= f\left(\begin{bmatrix}1 & x_{1} & x_{2}\\\end{bmatrix} \times
+    \begin{bmatrix}-2 & 0 \\ 1 & 1 \\ 1 & 1 \\\end{bmatrix} \right) \\
+  \vect{y} &= g\left(\begin{bmatrix}1 & h_{1} & h_{2}\\\end{bmatrix} \times
+    \begin{bmatrix}3 \\ -1 \\ -1 \\\end{bmatrix} \right) \\
+\end{align*}
+\begin{margintable}[-8\baselineskip]
+  \centering
+  \caption{\label{tbl:xor-mlp-solution}%
+    The solution for the XOR problem using the network
+    in Figure~\ref{fig:mlp-xor}.
+  }
+  ~\\[1mm]
+  \begin{tabular}{SSSSS}
+    \toprule
+    {$x_{1}$} & {$x_{2}$} & {$h_{1}$} & {$h_{2}$} & {$y$}\\
+    \midrule
+    0 & 0 & 4 & 0 & 0.2689414213699951 \\
+    0 & 1 & 1 & 1 & 0.7310585786300049 \\
+    1 & 0 & 1 & 1 & 0.7310585786300049 \\
+    1 & 1 & 0 & 4 & 0.2689414213699951 \\
+    \bottomrule
+  \end{tabular}
+\end{margintable}
+We will not explicitly calculate the other here,
+but we give the network's output,
+including the values at the hidden layer,
+for all relevant values for the XOR problem
+in Table~\ref{tbl:xor-mlp-solution}.
+Note that the output of the network for inputs $(0,1)$ and $(1,0)$
+is above \num{0.5}.
+As a result we classify these values as belonging to the positive class,
+and since the other two input are below \num{0.5} they are
+assigned to the negative class.
+
+Another interesting observation with the solution is presented
+in Figure~\ref{fig:xor-transformation}.
+The upper panel plots the original XOR problem similar to 
+Figure~\ref{fig:xor-linear-sep}.
+The lower panel, show how these points were transformed
+by the hidden layer.
+The points that represent different classes on the lower panel
+are linearly separable.
+As a result, the output layer, which is simply
+a binary logistic regression classifier can find a solution.
+The transformation performed by the hidden layer
+turns a problem that is not linearly separable
+into a linearly separable one.
+\begin{marginfigure}[-8\baselineskip]
+  \centering
+%  \tikzset{external/export next=false}%
+  \tikzsetnextfilename{xor-transformation-mlp}
+	\begin{tikzpicture}[x=12mm, y=12mm, shorten >=1pt,->,thick]
+		\tikzstyle{posdot}=[red,fill=white,circle,inner sep=0pt,draw]
+		\tikzstyle{negdot}=[blue,fill=white,circle,inner sep=0pt,draw]
+
+    \draw (0,0) -- (0, 2.5) node[anchor=east] {$x_{2}$};
+    \draw (0,0) -- (2.5, 0) node[anchor=west] {$x_{1}$};
+    \node[negdot,label={225:$0$}] (x00) at (0,0) {$\mathbf{-}$};
+    \node[posdot,label={180:$1$}] (x01) at (0,2) {$\mathbf{+}$};
+    \node[posdot,label={270:$1$}] (x10) at (2,0) {$\mathbf{+}$};
+    \node[negdot] (x11) at (2,2) {$\mathbf{-}$};
+
+    \draw (0,-3.5) -- (0, -1.0) node[anchor=east] {$h_{2}$};
+    \draw (0,-3.5) -- (2.5, -3.5) node[anchor=west] {$h_{1}$};
+    \node[anchor=north east] at (0,-3.5) {$0$};
+
+    \node[negdot,label={270:$4$}] (h00) at ($(2, 0) + (0, -3.5)$) {$\mathbf{-}$};
+    \node[posdot] (h01) at ($(0.5, 0.5) + (0, -3.5)$) {$\mathbf{+}$};
+    \node[posdot] (h10) at ($(0.5, 0.5) + (0, -3.5)$) {$\mathbf{+}$};
+    \node[negdot,label={180:$4$}] (h11) at ($(0, 2) + (0, -3.5)$) {$\mathbf{-}$};
+
+    \draw[thick,gray!20,-] ($(0, 1.5) + (0, -3.5)$) -- ($ (1.5,0) + (0, -3.5)$);
+    \draw[dashed,red!40] (x00) -- (h00);
+    \draw[dashed,red!40] (x01) -- (h01);
+    \draw[dashed,red!40] (x10) -- (h10);
+    \draw[dashed,red!40] (x11) -- (h11);
+	\end{tikzpicture}
+  \caption{\label{fig:xor-transformation}%
+    A demonstration of the transformation computed by the hidden layer
+    of the network presented in Figure~\ref{fig:mlp-xor}.
+  }
+\end{marginfigure}
+
+Note that the reason the hidden layer can transform a non-linearly-separable
+problem into a linearly separable one is the fact that it uses
+a non-linear activation function.
+Without the non-linear activation,
+regardless of the depth of the networks,
+what we do is a series of matrix--vector multiplications,
+in other words, linear transformations.
+Figure~\ref{fig:linear-act}
+
+\begin{marginfigure}[-8\baselineskip]
+  \centering
+%  \tikzset{external/export next=false}%
+  \tikzsetnextfilename{linear-mlp-example}
+	\def\layersep{2cm}
+	\begin{tikzpicture}[shorten >=1pt,->,node distance=\layersep,blue!40!black]
+		\tikzstyle{every pin edge}=[<-,shorten <=1pt]
+		\tikzstyle{neuron}=[circle,fill=black!25,minimum size=17pt,inner sep=0pt,draw=black!50 ]
+		\tikzstyle{edgelab}=[above,midway,sloped,font=\footnotesize]
+
+		
+		\matrix(m)[matrix of math nodes,row sep=1cm, column sep=1.5cm,%
+			ampersand replacement=\&]
+		{ 
+			|(i1)| x_{1} \& |(h1)[neuron]| h_{1} \&                   \\
+					         \&                      \& |(o)[neuron]| y   \\
+			|(i2)| x_{2} \& |(h2)[neuron]| h_{2} \&                   \\
+		};
+    \draw (i1) -- (h1) node[edgelab] {a};
+    \draw (i1) -- (h2) node[edgelab, xshift=5mm] {b};
+    \draw (i2) -- (h1) node[edgelab, xshift=5mm] {c};
+    \draw (i2) -- (h2) node[edgelab] {d};
+    \draw (h1) -- (o) node[edgelab] {e};
+    \draw (h2) -- (o) node[edgelab] {f};
+	\end{tikzpicture}
+  \caption{\label{fig:linear-act}%
+    A simple network for demonstrating the need for non-linear
+      activation.
+      Without non-linear activation functions
+      the output of the network is
+      $y = (ea + fb) x_{1} + (ec + fd) x_{2}$,
+      a linear transformation of the input variables.
+  }
+\end{marginfigure}
+
+\section{Learning in neural networks}
+
+Like the earlier methods we discussed,
+learning in ANNs is achieved thorough minimizing an error function.
+The choice of exact error function is related to the task
+and the network architecture.
+In general,
+the minimum of the neural network error functions cannot be found
+using analytic solutions (as in regression).
+As a result,
+we need to employ a search strategy like \emph{gradient descent},
+to find the minimum of the error function.
+We have already seen models whose minimum error can be found
+using gradient descent.
+As long as the error function is convex,
+gradient descent can find the minimum point of the error function efficiently.
+The problem we face with neural networks is that
+the error functions are not necessarily convex.
+There may be multiple minima
+as demonstrated in Figure~\ref{fig:global-local-minima}.
+Although we want to find the \emph{global minimum},
+gradient descent is not guaranteed to find it.
+It may stop in one of the \emph{local minima}.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{global-local-minima-3d}
+  \begin{tikzpicture}
+    \begin{axis}[width=1.2\linewidth,
+        xlabel=$w_{1}$,
+        ylabel=$w_{2}$,
+        zlabel=$E(\vect{w})$,
+        ticklabel style={font=\tiny},
+        ylabel style={font=\scriptsize, yshift=3mm,xshift=-2mm},
+        xlabel style={font=\scriptsize, yshift=2mm},
+        zlabel style={font=\scriptsize, yshift=-1.5mm},
+        major tick length=1pt,
+        colormap/PuBu,
+        enlargelimits=true,
+      ]
+      \addplot3 [surf,domain=-20:20,samples=50]
+%      \addplot3 [surf,domain=-20:20]
+        {5 + cos(15*x)+ sin(15*y) - 2 * 1.05^(-(x+10)^2-(y+10)^2)};
+      \node[font=\scriptsize] at (-10, -10, 1) {global min.};
+      \node[font=\scriptsize] at (10, 10, 1.4) {local min.};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:global-local-minima}%
+    A demonstration of multiple minima with two parameters.
+  }
+\end{marginfigure}
+
+\subsection{Backpropagation}
+
+\begin{marginfigure}
+  \centering
+  \tikzset{external/export next=false}%
+%  \tikzsetnextfilename{linear-mlp-example}
+	\def\layersep{2cm}
+	\begin{tikzpicture}[shorten >=1pt,->,node distance=\layersep,blue!40!black]
+		\tikzstyle{every pin edge}=[<-,shorten <=1pt]
+		\tikzstyle{neuron}=[circle,fill=black!25,minimum size=17pt,inner sep=0pt,draw=black!50 ]
+		\tikzstyle{edgelab}=[above,midway,sloped,font=\footnotesize]
+
+		
+		\matrix(m)[matrix of math nodes,row sep=1cm, column sep=1.5cm,%
+			ampersand replacement=\&]
+		{ 
+			|(i1)| x_{1} \& |(h1)[neuron]| h_{1} \&                   \\
+					         \&                      \& |(o)[neuron]| y   \\
+			|(i2)| x_{2} \& |(h2)[neuron]| h_{2} \&                   \\
+		};
+    \draw[red] (i1) -- (h1) node[edgelab] {a};
+    \draw[blue] (i1) -- (h2) node[edgelab, xshift=-5mm] {b};
+    \draw[red] (i2) -- (h1) node[edgelab, xshift=-5mm] {c};
+    \draw[blue] (i2) -- (h2) node[edgelab] {d};
+    \draw[red] (h1) -- (o) node[edgelab] {e};
+    \draw[blue] (h2) -- (o) node[edgelab] {f};
+	\end{tikzpicture}
+  \caption{\label{fig:mlp-backprop}%
+    A simple neural network for demonstrating the propagation of error.
+    In a single layer network (without hidden layer)
+    the error would be due to weight $e$ or $f$.
+    For the network above,
+    the error at output node $y$ need to distributed to the 
+    weights marked in red and blue.
+  }
+\end{marginfigure}
+Another issue about learning in neural networks arises
+because of the layered architecture of the system
+that makes learning in ANNs more challenging.
+It is computationally non-trivial to assign credit or blame to the weights
+of the non-final layers.
+We will discuss the solution and the problem
+through the simple example we presented earlier,
+which is repeated with slight modification in Figure~\ref{fig:mlp-backprop}.
+The figure indicates two possible paths in the network
+that may have caused the error on output unit $y$
+with two different colors.
+If we had a single layer,
+gradient descend would update
+the weights $e$ and $f$ based on their partial derivatives
+(the steepness of the error function in the corresponding dimension).
+Since we do not have direct notion of error in the hidden layer,
+we need a mechanism to determine how to distribute
+the responsibility for error.
+
+As noted above,
+we want to essentially use gradient descent,
+which means we need the gradient of the error
+with respect to weights.
+We will go through a (very) simplified example
+based on the network in Figure~\ref{fig:mlp-backprop}.
+For the sake of demonstration,
+we will assume that we are minimizing $y$
+(normally we minimize the error which is a function of $y$,
+but we will soon see that
+the principles applies to more realistic cases as well).
+The gradient of the whole network is the vector
+\begin{equation*}
+  \nabla{}y = \left(
+                  \frac{\partial y}{\partial a},\;
+                  \frac{\partial y}{\partial b},\;
+                  \frac{\partial y}{\partial c},\;
+                  \frac{\partial y}{\partial d},\;
+                  \frac{\partial y}{\partial e},\;
+                  \frac{\partial y}{\partial f}
+              \right)
+\end{equation*}
+that is, the partial derivatives of the network
+with respect to each weight.
+For the sake of demonstration we will calculate the  
+partial derivatives with respect to $e$, $a$ and $c$,
+with some heavy simplification.
+Partial derivative $\frac{\partial y}{\partial e}$ can be calculated
+in a rather straightforward way for a differentiable function.
+All other parts of the network are constant terms with respect to $e$.
+
+Calculation of the partial derivatives with respect to 
+$a$ and $c$ is slightly more involved,
+as $h_{1}$ is a function of these variables.
+However, we can simply apply the chain rule of derivatives%
+\sidenote{In general, derivative of a function $F(x) = f(g(x))$ is
+  calculated using the chain rule of derivatives:
+  \begin{equation*}
+    F'(x) = f'(g(x))g'(x)
+  \end{equation*}
+}
+\begin{equation}\label{eq:bp-partial-deriv}
+      \frac{\partial y}{\partial a} = 
+      \frac{\partial y}{\partial h_{1}}
+      \frac{\partial h_{1}}{\partial a}
+    \quad\text{and}\quad
+      \frac{\partial y}{\partial c} = 
+      \frac{\partial y}{\partial h_{1}}
+      \frac{\partial h_{1}}{\partial c} \;.
+\end{equation}
+
+The main point here is that we can calculate the partial derivative
+with respect to any of the weights.
+If our networks gets deeper, the terms for the earlier weights 
+will have more terms due to repeated application of the chain rule,
+and due to the fact that in our representation above each layer
+implements two pieces of computation
+(a linear mapping followed by application of the activation function).
+Hence, once we factor these in,
+we will have more terms the partial derivation calculations
+in Equation~\ref{eq:bp-partial-deriv} even for our simple network above.
+Furthermore, we can consider the error function as a final node,
+taking the output of the network, and calculating the error,
+which means the above notion of calculating gradient works.
+In fact, this will work for any \emph{computation graph} without cycles.
+
+So far, what we did was just math,
+telling us a we can calculate the gradient for a feed-forward network.
+However, you should note that
+the term $\frac{\partial y}{\partial h_{1}}$
+Equation~\ref{eq:bp-partial-deriv}
+is required calculating the partial derivatives
+with respect to both $a$ and $c$.
+Repeated calculation of same the same quantities
+makes a naive attempt to implement
+the above procedure computationally very inefficient.
+Making it impossible to use in most
+modern neural networks which include thousands, if not millions, of parameters.
+Also note that we typically calculate the error on a large
+number of inputs with many dimensions,
+which makes the problem even more complex.
+
+The solution to this problem is called the \emph{backpropagation algorithm}.
+The idea is similar to many dynamic programming algorithms.
+The backpropagation algorithm simply stores the quantities
+like $\frac{\partial y}{\partial h_{1}}$ above 
+and avoids recalculating them.
+
+\subsection{Stochastic and mini-batch gradient descent}
+
+In typical gradient descent learning,
+the gradient is calculated using the complete training data.
+However, large data sizes this is computationally inefficient.
+Together with large number of large number of parameters,
+the space complexity (required memory) may become an important issue.
+
+There is a well-known, memory-efficient variant,
+\emph{stochastic gradient descent}
+which updates weights for every single training instance.
+Since the stochastic gradient descent changes the weights for every single
+training instance, it is noisy,
+it may sometimes take steps in the opposite direction of the minimum.
+However, in the long run, it is known converge to the same minimum.
+
+\begin{marginfigure}
+%    \tikzset{external/export next=false}%
+    \tikzsetnextfilename{stochastic-gradient-2d-contour}
+    \begin{tikzpicture}
+      \begin{axis}[
+  %        view={45}{45},
+  %        view/h=45,
+          view={25}{50},
+          width=1.2\linewidth,
+          ticks=none,
+          xlabel={$w_{2}$},
+          ylabel={$w_{1}$},
+          zlabel={error},
+          colormap={CM}{rgb=(0.5,0.5,0.5) rgb=(1,1,1)},
+        ]
+%        \addplot3[contour gnuplot={
+%                    labels=false,
+%                    number=10,
+%                  },
+%        \addplot3[surf,
+        \addplot3[contour filled={number=20,draw color=black},
+                  domain=-1:1,
+                  ticks=none,
+                  samples=75,
+%                  colormap/BuPu,
+        ]
+        {
+%%          x^2 + y^2
+  %%        - x * exp(-x^2-y^2)
+         - exp(-x^2-y^2)
+        };
+        \addplot3[
+          thick,red,
+          quiver={u=\thisrow{u}, v=\thisrow{v}, w=\thisrow{w}},->]
+        table {
+          x y z u v w 
+          -0.9 0.9 -0.19789869908361465 0.1 -0.6 -0.284
+          -0.8 0.3 -0.4819089900902024 0.1 0.3 0.054
+          -0.7 0.6 -0.4274149319487267 0.3 0.1 -0.095
+          -0.4 0.7 -0.522045776761016 -0.1 -1.0 -0.19
+          -0.5 -0.3 -0.7117703227626098 0.2 0.5 -0.166
+          -0.3 0.2 -0.8780954309205613 0.5 -0.3 -0.073
+          0.2 -0.1 -0.951229424500714 -0.15 0.1 -0.046
+        };
+        \addplot3[
+          thick,blue,
+          quiver={u=\thisrow{u}, v=\thisrow{v}, w=\thisrow{w}},->]
+        table {
+          x y z u v w 
+          -0.9 0.9 -0.19789869908361465 0.4 -0.4 -0.409
+          -0.5 0.5 -0.6065306597126334 0.3 -0.3 -0.317
+          -0.2 0.2 -0.9231163463866358 0.1 -0.1 -0.057
+          -0.1 0.1 -0.9801986733067553 0.1 -0.1 -0.02
+        };
+      \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:gradient-batch-online}%
+    A demonstration of the paths taken by gradient descent (blue)
+    and stochastic gradient descent (red) on an (hypothetical) error surface.
+  }
+\end{marginfigure}
+Figure~\ref{fig:gradient-batch-online} demonstrates
+the possible paths taken by gradient descent
+and the stochastic gradient descent on an error surface
+defined on two paramters.
+Since the error surface is a function of the whole input data,
+the gradient descent will take sure steps toward the minimum with fewer steps.
+The stochastic version will wander around the error surface more
+since the gradient is calculated only based on a single input,
+and likely to take many more steps.
+However, stochastic gradient descent will also 
+require fewer calculation (and less memory) at every step.
+
+In practice, it is more common to use a \emph{mini batch}
+that is a compromise between full gradient descent and the stochastic version.
+Mini batches are computationally more attractive,
+they both fit into memory and can 
+also be computed much faster vector processing hardware
+such as graphical processing units (GPUs)
+in comparison to stochastic gradient descent.
+
+Furthermore, it turns out batch size is an important parameter in many cases.
+The choice of batch size affects the outcome of training a neural network,
+and often large batch sizes may be non-optimal.
+This effect is likely due to the fact that (full) batch gradient descent
+converges to the closest minimum with sure steps even if it is
+a rather `shallow' local minima.
+On the other hand stochastic or mini-batch version may 
+skip over the minor `bumps' in the error surface,
+eventually finding a better (local) minimum on the error surface.
+
+\subsection{Countermeasures for overfitting}
+
+As in any machine learning models, ANNs can also overfit.
+They may even be more prone to overfitting due to their complexity
+in comparison to, e.g., linear classifiers.
+As in linear models, one way to counteract overfitting is regularization.
+One can apply L1 or L2 regularization to ANNs,
+by adding L1 or L2 norm of the weights to the error function.
+
+Another popular method to prevent overfitting is \emph{dropout},
+where a randomly chosen input and/or hidden unit in the network is `turned off',
+by setting their (output) value to 0.
+Each layer, has access to only a random view of its input
+for each input instance.
+As a result it is forced to learn from partial information.
+Dropout is known to reduce overfitting.
+It is also seen as learning an ensemble of multiple classifiers,
+each operating on a subset of features.
+It is a technique that is typically used in practice.
+
+Another method of preventing overfitting is \emph{early stopping}.
+The idea with early stopping is to monitor the loss on
+a validation set at every epoch,
+and stop when the validation error starts increasing.
+
+\subsection{Some tricks of the trade}
+
+Non-convex error functions (multiple minima)
+mean that gradient descent will not necessarily find the global minimum
+while training neural networks.
+Furthermore, the large number of possible variations of architecture
+and hyperparameters%
+\sidenote{Just to list a few typical ones:
+  number of layers, number of units at each layer,
+  activation functions at each layer,
+  regularization method and its parameters,
+  number of epochs to train the network,
+  weight initialization, batch size, learning rate,
+  (adaptive) learning method and its parameters \ldots
+}
+make neural network training
+often more involved than traditional (linear) models.
+Although, their renewed popularity made it easier
+(through common practices, higher-level libraries with better default behavior),
+training neural networks well,
+particularly the networks beyond simple ones,
+require a substantial amount of (hands-on) experience.
+How to train neural networks properly and efficiently is
+an active area of research,
+and often theory and understanding lags behind some established practices.
+Here, we try to point out some of the common issues.
+
+One common alternation to gradient descent
+while training neural networks is to add \emph{momentum}.
+Even though the mini-batch training is indeed found to be useful,
+and used in practice almost exclusively,
+smaller batch sizes may also cause the jumps at every step of gradient descent
+as demonstrated in Figure~\ref{fig:gradient-batch-online}.
+To make sure that the mini-batch methods do follow a more straight course,
+one can add the previous gradient (or an average of previous gradients).
+With momentum gradient descent updates become, for example,
+\begin{equation*}
+    \Delta w_{ij}(t) = \eta \frac{\partial E}{\partial w_{ij}}
+                       + \alpha \Delta w_{ij}(t-1)
+\end{equation*}
+where $\eta$ is the usual learning rate,
+and $\alpha$ is another hyperparameter determining the strength of momentum.
+Intuitively, momentum cause a larger update
+if the current gradient is in the direction of the previous gradient(s),
+otherwise it will change its course towards the earlier course of the descent.
+
+Another important factor in neural network training is the \emph{learning rate}.
+Typically we want to start with higher learning rate,
+and reduce it as the learning progresses.
+Simple algorithms that `decay' the learning rate (e.g. linearly) based on
+number of iterations are often used in practice.
+However, there are quite a few \emph{adaptive} algorithms which
+set the learning (and possibly other parameters
+such as the momentum parameter we discussed above) in a smart way.
+We will not go into details of each of these \emph{optimization algorithms},
+but note that there are quite a few of them and most machine learning
+libraries or platforms offer out-of-the-box implementations.%
+\sidenote{Just to name a few: Adagrad, Adadelta, RMSprop, Adam, \ldots}
+For most ANN practitioners,
+using one of these algorithms is often more practical
+(for both finding a good minimum and for finding it quickly)
+than custom adaptions.
+
+
+% \begin{marginfigure}
+%   \tikzset{external/export next=false}
+%   \tikzsetnextfilename{saddle-point-2d}
+%   \begin{tikzpicture}
+%     \begin{axis}[width=\linewidth,
+% %      axis lines=center,
+% %      axis on top,
+%         xlabel=$x_{1}$,
+%         ylabel=$x_{2}$,
+%         zlabel=$y$,
+%         ticklabel style={font=\tiny},
+%         ylabel style={font=\small, yshift=3mm},
+%         xlabel style={font=\small, yshift=3mm},
+%         zlabel style={font=\small, yshift=-3mm},
+%         major tick length=1pt,
+%         colormap/PuBu,
+%       ]
+%       \addplot [domain=-2:2] {x^3};
+%     \end{axis}
+%   \end{tikzpicture}
+%   \caption{\label{fig:saddle-point-2d}%
+%     Saddle point in 2 dimensions.
+%   }
+% \end{marginfigure}
+% 
+% \begin{marginfigure}
+% %  \tikzset{external/export next=false}
+%   \tikzsetnextfilename{saddle-point-3d}
+%   \begin{tikzpicture}
+%     \begin{axis}[width=\linewidth,
+% %      axis lines=center,
+% %      axis on top,
+%         xlabel=$x_{1}$,
+%         ylabel=$x_{2}$,
+%         zlabel=$y$,
+%         ticklabel style={font=\tiny},
+%         ylabel style={font=\small, yshift=3mm},
+%         xlabel style={font=\small, yshift=3mm},
+%         zlabel style={font=\small, yshift=-3mm},
+%         major tick length=1pt,
+%         colormap/PuBu,
+%       ]
+%       \addplot3 [surf,domain=-2:2] {x^2 - y^2};
+%     \end{axis}
+%   \end{tikzpicture}
+%   \caption{\label{fig:saddle-3d}%
+%     Saddle point in 3 dimensions.
+%   }
+% \end{marginfigure}
+
+
+
+% \section*{Where to go from here}

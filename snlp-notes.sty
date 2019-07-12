@@ -1,0 +1,51 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{snlpnotes}[2019/06/14 Utilities for SNLP lecture notes]
+\RequirePackage{pgfkeys,pgfopts}
+
+\newif\ifsnlpdraft
+\pgfkeys{
+  /snlpnotes/.cd,
+  draft/.is if=snlpdraft,
+  draft/.initial=false,
+  version/none/commit/.initial=none,
+  version/none/commitdate/.initial=\today,
+  version/none/modifydate/.initial=\today,
+}
+\ProcessPgfOptions{/snlpnotes}
+
+\RequirePackage[textsize=tiny,disable]{todonotes}
+\renewcommand{\todo}[2][]{\tikzexternaldisable\@todo[#1]{#2}\tikzexternalenable}
+
+\newcommand{\tikzmark}[1]{%
+  \tikzset{external/export next=false}%
+  \tikz[overlay,remember picture] \node (#1) {};%
+}
+
+%
+\RequirePackage{fancyhdr}
+\RequirePackage{datetime2}
+\providecommand{\gitLastCommit}{none}
+\providecommand{\gitLastCommitDate}{\today}
+\providecommand{\gitLastModified}{\today}
+\IfFileExists{version.tex}{%
+  \input{version}%
+}{%
+%  \renewcommand{\gitLastCommit}{none}
+%  \renewcommand{\gitLastCommitDate}{\today}
+%  \renewcommand{\gitLastModified}{\today3}
+}
+\ifsnlpdraft
+	\fancypagestyle{plain}{%
+			\fancyhf{}%
+      \fancyfoot[RE,RO]{%
+        \tiny\textcolor{gray}{%
+          Draft lecture notes.
+          Version: \pgfkeysvalueof{/snlpnotes/version/\currfilebase/commit}%
+          @\pgfkeysvalueof{/snlpnotes/version/\currfilebase/modifydate};
+          \currfilename
+          \hspace{2mm}\doclicenseIcon}%
+      }
+	%  \renewcommand{\headrulewidth}{0pt}
+	%  \renewcommand{\footrulewidth}{0pt}
+	}
+\fi

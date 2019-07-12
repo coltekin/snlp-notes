@@ -1,0 +1,978 @@
+\chapter{\label{chap:information-theory}Information theory}
+
+The field of information theory is concerned with measurement, storage
+and transmission of information.
+I has its roots in communication theory,
+but applications in many different fields including machine learning
+and natural language processing.
+In this chapter,
+we will briefly introduce some of the main ideas,
+and discuss a few important information theoretic measures
+that will be used in the rest of the course.
+
+\section{The noisy channel model}
+
+A basic motivation in information theory is communication over 
+a noisy channel.
+In a \emph{noisy channel model},
+as the one depicted in Figure~\ref{fig:noisy-channel},
+the sender encodes the given message,
+and sends it through the channel,
+but the receiver receives a possibly corrupted version of the coded message.
+\begin{marginfigure}
+  \tikzsetnextfilename{noisy-channel}
+  \begin{tikzpicture}
+    \node (in) {a};
+    \node[draw,thick,right=3mm of in, minimum height=4ex] (enc) {encoder};
+    \node[draw,thick,right=15mm of enc, minimum height=4ex] (dec) {decoder};
+    \node[right=3mm of dec] (out) {a};
+    \node[below=0.5mm of enc,xshift=2em,font=\small]
+      {100\textcolor{red}{0}0010};
+    \node[below=0.5mm of dec,xshift=-2em,font=\small]
+      {100\textcolor{red}{1}0010};
+    \draw[thick,->] (in) -- (enc);
+    \draw[thick,->] (dec) -- (out);
+    \draw[thick,decorate, decoration={snake,post length=1mm},->]
+      (enc) -- (dec)
+      node[midway, above,yshift=2mm,font=\small,text width=1cm,align=center]
+        {noisy\\channel};
+  \end{tikzpicture}
+  \caption{\label{fig:noisy-channel}%
+    Schematic description of the noisy-channel model.
+    The encoder codes the message and sends through a noisy channel
+    to the decoder.
+    The encoded message may possibly be corrupted during the transmission.
+    The decoder's task is to reconstruct the original message,
+    despite the potential noise introduced.
+  }
+\end{marginfigure}
+The task of the decoder is to recover the original message,
+even if there are some errors introduced in the noisy channel.
+There are two competing objectives within the noisy channel model.
+First, we want to use codes that use of the \emph{channel capacity}
+as \emph{efficient}ly as possible.
+We want coding schemes that result in short coded messages,
+to transmit or store.
+This is where the strong connection between the information theory 
+and compression comes into the picture.
+Second,
+we want to be able to detect and correct the errors introduced by the noisy channel.
+An obvious way to detect and correct errors is 
+to send multiple copies of the code.
+As we introduce more redundant copies,
+it is more likely to recover the original message.
+However,
+replication also wastes the bandwidth of the channel.
+Coding information efficiently,
+while allowing error detection and error correction is fundamental
+topics in information theory.
+The example code in Figure~\ref{fig:noisy-channel},
+is simply the ASCII code followed by an odd parity bit,
+which means the last bit is set to \num{1} if the number of \num{1}s
+in the code is an odd number,
+otherwise,
+the last bit is set to \num{0}.
+Note that with the given code at hand,
+the decoder can detect the error.%
+\footnote{Can the decoder correct the error in Figure~\ref{fig:noisy-channel}?}
+Here, we will not discuss error-correcting codes,
+neither most of the other fascinating topics in information theory.
+Interested readers are referred to the textbooks on information theory,
+such as \textcite{mackay2003}.
+
+Clearly, the noisy channel model is useful in the study of computer networks.
+However, it has many other uses.
+Note that the channel does not have to be a network connection.
+For example,
+the model fits equally well to storing data to a permanent storage.
+Permanent storage systems (e.g., hard disks) are fairly accurate,
+however, they are not error free.
+As a result,
+error resilience and efficiency is a concern here too.
+The encoder encodes the information,
+and sends it to the disk,
+the decoder reads code (possibly after a long time) from the disk and
+has to make sure that the information it decodes was not corrupted.
+
+Beyond those obvious extensions,
+the noisy channel model found its use in many other applications.
+For an example close to home,
+we often model \emph{speech recognition} with a noisy channel model.
+The information here is a linguistic message,
+e.g., a sentence.
+The speaker codes this information as an acoustic signal,
+and the recognizer's task is to decode the sentence
+from the acoustic signal (code).
+Another common use for the noisy channel model in NLP is
+in machine translation, which we will return later.
+We will not further discuss
+the applications of the noisy channel model here.
+However,
+we introduce some of the concepts, particularly some measures,
+that have very frequent uses in machine learning and NLP.
+
+\section{Entropy and information}
+
+In information theory,
+\emph{entropy} is a measure of uncertainty.
+The measure is analogous to `physical' entropy measure
+in statistical thermodynamics,
+but measures the uncertainty of
+an information system rather than a physical system.
+In ambiguous contexts, it is also called \emph{information entropy} or 
+\emph{Shannon entropy} after Claude Shannon,
+the inventor of the measure and the founder of the field.
+Entropy and information are tightly connected concepts.
+More concretely,
+information in a message
+(e.g., in the noisy channel model described above)
+is the reduction of entropy after receiving the message.
+
+Before introducing entropy properly,
+we will first introduce a related measure \emph{surprisal},
+which is also called \emph{self information}
+or \emph{information content}.
+The information theoretic measure of surprisal of an event $x$ is defined as
+\begin{equation}\label{eq:surprisal}
+  log \frac{1}{P(x)} = - log P(x) .
+\end{equation}
+If the probability of the event is \num{1}
+(event occurs with certainty)
+the surprisal will be \num{0}.
+For events with decreasing probabilities,
+we will get higher values for surprisal.
+The value of surprisal will approach to $\infty$
+while the probability of the event approaches to \num{0}.
+
+The base of the logarithm in Equation~\ref{eq:surprisal}
+is not very important,
+since the logarithms in a different base can be obtained
+by multiplication with a constant
+(with a linear transformation).
+Most common choices include base \num{2} logarithms,
+which results in surprisal (or information) measured in \emph{bit}s.
+If we use natural logarithm (with base $e$, Euler's number),
+than the unit is called \emph{nat}.
+In this course we will always use base-\num{2} logarithms,
+and measure the information in bits.
+
+The same quantity having names `surprisal' and `self information'
+may not sound right at first sight.
+The intuition here is that
+we learn more from low-probability events.
+Low probability events are surprising,
+but also have more information content.
+There is nothing surprising with
+a weather report that tells it will rain in a very rainy country.
+It also does not have much information content,
+we can already predict it.
+But if it predicts a sunny day in the middle of a rainy season,
+then it is surprising as well as news-worthy,
+it contains more information.
+
+% The inverse relationship between surprisal and probability is intuitive.
+% You may wonder, however, the reason for taking the logarithm.
+% The main reason seems to be it is more convenient.
+% We will try to get the intuition about logarithms with an example.
+% Let's assume that we have a language with four letters,
+% where occurrence of each letter has probability of \num{1/4},
+% that is 
+% 
+% or information content of a state.
+% High entropy means high unpredictability,
+% hence high information content.
+% If the outcome of a particular random variable is deterministic,
+% then there is no uncertainty.
+% Hence, the entropy is \num{0}.
+
+Entropy of a system is the average surprisal.
+We define entropy, $H$, of a random variable $X$ as
+\begin{equation}\label{eq:entropy}
+  H(X) = - \sum_{x \in X} P(x) log P(x)
+\end{equation}
+where, $x$ ranges over all values of $X$.
+The above definition is for discrete variables,
+which is much more common in NLP.
+The notion of entropy can be extended to continuous random variables,
+by replacing the sum with an integral
+and $P(x)$ with the appropriate probability density function.
+The resulting definition (for continuous random variables)
+is called \emph{differential entropy}.
+
+To get a sense of what entropy does,
+consider the `guess the number' game,
+where the first player picks a number between \num{1} and a larger number $M$,
+(say 32),
+and the task of the second player is to guess the number.
+After every guess,
+the first player tells whether the guess was
+larger or smaller than the number he/she picked.
+Assuming the first player picks the number completely randomly
+(samples from the uniform distribution),
+and if the second player follows the optimum strategy (binary search),
+the first player will need to make $\log_{2} M$ guesses at most.%
+\sidenote{What is the best strategy,
+  if the number picked randomly,
+  but follows a known non-uniform distribution?
+}
+Which is exactly what you will find if you use Equation~\ref{eq:entropy},
+to calculate the entropy of this system.
+For $M = 32$, 
+\[
+  H = - \sum_{1 \le x \le 32} \frac{1}{32} \log_{2} \frac{1}{32}
+  = - 32 \frac{1}{32} \log_{2} \frac{1}{32} = - \log_{2} \frac{1}{32}
+  = 5 .
+\]
+Note that since the numbers are equally likely,
+probabilities for each number is the same ($1/32$).
+As a result,
+at the beginning we have \num{5} bits of entropy.
+You should also see that we reduce the entropy by \num{1} bit for every guess
+(unless we guess the correct number).
+Hence, information we gain with every guess is \num{1} bit.
+
+It is important to realize that
+the entropy, or the information,
+increase or decrease proportional to the logarithm of the states (the numbers).
+If we double the range of numbers to pick from,
+the entropy will not double, but only increase with one bit.
+This logarithmic relationship is convenient,
+since states of many systems we are interested in grow exponentially.
+
+\begin{margintable}
+  \caption{\label{tbl:binary-code-example}
+    Example binary coding of an eight letter alphabet.
+  }
+  \begin{center}
+    \begin{tabular}{lS[minimum-integer-digits=3]}
+      \toprule
+      letter & {code} \\
+      \midrule
+      a & 000 \\
+      b & 001 \\
+      c & 010 \\
+      d & 011 \\
+      e & 100 \\
+      f & 101 \\
+      g & 110 \\
+      h & 111 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{margintable}
+To get a sense of why logarithm is a good idea,
+consider we want to code a \num{8}-letter alphabet on a binary medium
+(or want to send over a binary channel).
+We can use as many bits as the number of letters
+(setting one of the bits to \num{1}, and the rest to \num{0},
+similar to the one-hot representation discussed in Section~\ref{desc:one-hot}),
+but this is wasteful.
+The optimum coding would not require \num{8} bits.
+We can easily represent \num{8} letters letters with \num{3} bits,
+which turns out to be exaclty $\log_{2} 8$.
+An example coding of \num{8}-letter alphabet is shown
+in Table~\ref{tbl:binary-code-example}.
+Note that if we double the letters,
+we would not need to double the number of bits used,
+all we need to do is add one more bit.
+Hence,
+the number of bits needed to represent $M$ letters is $log_{2} M$.
+This is optimum if the letters we want to transmit are distributed uniformly.
+We will soon see that we can do better,
+if we have more structure in the distribution of the letters.
+
+
+\begin{marginfigure}
+  \tikzsetnextfilename{bernoulli-entropy}
+  \begin{tikzpicture}[
+  ]
+
+      \begin{axis}[axis lines=left,
+          enlarge x limits=true,
+          enlarge y limits=upper,
+          samples=50,
+          width=1.1\linewidth,
+          xlabel={$P(X=1)$},
+          ylabel={$H(X)$},
+          ylabel style={at={(rel axis cs:0,1)}, anchor=west,rotate=-90}
+      ]
+          \addplot[smooth, thick, blue, domain=0:1]
+            {- x * (ln(x)/ln(2)) - (1-x) * (ln(1-x)/ln(2))};
+      \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:bernoulli-entropy}%
+    Entropy of Bernoulli random variables (in bits)
+    as a function of the parameter $p$. 
+  }
+\end{marginfigure}
+For simplicity,
+we assumed uniform distribution in the discussion/demonstration above.
+What if the distribution of the random variable is not uniform?
+To answer this question,
+consider a Bernoulli trial, for example,
+a coin-toss experiment or 
+picking letters from a two-letter alphabet like Morse code.
+If the letters were equally probable as in our earlier example,
+the entropy would be,
+\[
+%  - \left(P(\mathbf{-}) \log P(\mathbf{-}) 
+%      + P(\mathbf{\cdot}) \log (\mathbf{\cdot})\right)
+  H = - \left(0.5 \times \log_{2} 0.5 + 0.5 \times \log_{2} 0.5 \right)
+  = - \log_{2} 0.5 = 1.
+\]
+So, the entropy of a Bernoulli random variable with equal probabilities ($p = 0.5$),
+such as outcome of a fair coin toss, is \num{1} bit.
+We can also calculate the entropy with non-equal probability values.
+For example, entropy of a Bernoulli random variable with $p=0.8$,
+\[
+%  - \left(P(\mathbf{-}) \log P(\mathbf{-}) 
+%      + P(\mathbf{\cdot}) \log (\mathbf{\cdot})\right)
+  H = - \left(0.8 \times \log_{2} 0.8 + 0.2 \times \log_{2} 0.2 \right)
+  = \num{0.7219281} .
+\]
+Note that the entropy reduced from 1 bit to \num{0.7219281} bits.
+This should all be intuitive,
+since knowing that some of the outcomes are more likely than others reduces
+the average surprisal.
+If we do the above calculations for the parameter of Bernoulli distribution
+$p$ in range $[0, 1]$,
+we get the graph in Figure~\ref{fig:bernoulli-entropy}.
+If the outcome of the variable is certain with $p = 1$ or $p = 0$,
+then the entropy is \num{0},
+and the entropy peaks at \num[round-precision=1]{0.5},
+with a value of \num{1} bit,
+where the uncertainty is at its maximum.
+
+In general, uniform distribution is the distribution
+with the maximum entropy
+for distributions with the same support
+(the set of values/events the distribution is defined on).
+If the number of outcomes increase,
+the uncertainty and the entropy will increase.
+And, as the distribution diverges from the uniform distribution
+by assigning higher probabilities to a small set of events,
+the entropy will decrease.
+Figure~\ref{fig:entropy-demo} demonstrates these two factors
+with the categorical distribution.
+
+\begin{figure}
+    \tikzset{external/export next=false}
+    %\tikzsetnextfilename{entropy-viz1}
+    \begin{tikzpicture}[x=1mm,y=1mm]
+      \newcounter{x}
+      \newcounter{y}
+      \def\xstep{22}
+      \def\r{8mm}
+      \draw[fill=blue!20] (\thex,\they) circle[radius=\r];
+
+      \addtocounter{x}{\xstep}
+      \filldraw[fill=green!20!white, draw=green!50!black]
+          (\thex,0) ++(0:\r) arc[start angle=0, end angle=180, radius=\r] -- cycle;
+      \filldraw[fill=blue!20!white, draw=green!50!black]
+          (\thex,0) ++(180:\r) arc[start angle=180, end angle=360, radius=\r] -- cycle;
+
+      \addtocounter{x}{\xstep}
+      \filldraw[fill=green!20!white, draw=green!50!black]
+          (\thex,0) ++(0:\r) arc[start angle=0, end angle=90, radius=\r] -- (\thex,0) -- cycle;
+      \filldraw[fill=blue!20!white, draw=green!50!black]
+          (\thex,0) ++(90:\r) arc[start angle=90, end angle=180, radius=\r] -- (\thex,0) --cycle;
+      \filldraw[fill=red!20!white, draw=green!50!black]
+          (\thex,0) ++(180:\r) arc[start angle=180, end angle=270, radius=\r] -- (\thex,0) --cycle;
+      \filldraw[fill=gray!20!white, draw=green!50!black]
+          (\thex,0) ++(270:\r) arc[start angle=270, end angle=360, radius=\r] -- (\thex,0) --cycle;
+
+      \addtocounter{x}{\xstep}
+      \filldraw[fill=green!20!white, draw=green!50!black]
+          (\thex,\they) ++(0:\r) arc[start angle=0, end angle=60, radius=\r] -- (\thex,\they) -- cycle;
+      \filldraw[fill=blue!20!white, draw=green!50!black]
+          (\thex,\they) ++(60:\r) arc[start angle=60, end angle=120, radius=\r] -- (\thex,\they) --cycle;
+      \filldraw[fill=red!20!white, draw=green!50!black]
+          (\thex,\they) ++(120:\r) arc[start angle=120, end angle=280, radius=\r] -- (\thex,\they) --cycle;
+      \filldraw[fill=gray!20!white, draw=green!50!black]
+          (\thex,\they) ++(180:\r) arc[start angle=180, end angle=360, radius=\r] -- (\thex,\they) --cycle;
+
+      \addtocounter{x}{\xstep}
+      \filldraw[fill=green!20!white, draw=green!50!black]
+          (\thex,\they) ++(0:\r) arc[start angle=0, end angle=30, radius=\r] -- (\thex,\they) -- cycle;
+      \filldraw[fill=blue!20!white, draw=green!50!black]
+          (\thex,\they) ++(30:\r) arc[start angle=30, end angle=60, radius=\r] -- (\thex,\they) --cycle;
+      \filldraw[fill=red!20!white, draw=green!50!black]
+          (\thex,\they) ++(60:\r) arc[start angle=60, end angle=90, radius=\r] -- (\thex,\they) --cycle;
+      \filldraw[fill=gray!20!white, draw=green!50!black]
+          (\thex,\they) ++(90:\r) arc[start angle=90, end angle=360, radius=\r] -- (\thex,\they) --cycle;
+
+
+      \foreach[count=\i, evaluate=\i as \x using int((\i-1)*\xstep)] \v in {0,1,2,1.79,1.06}{%
+        \node[anchor=north] at (\x,-10) {$H = \v$};
+      }
+    \end{tikzpicture}
+    \caption{
+      Demonstration of entropy values (in bits)
+      with the categorical distribution.
+      First three circles from the left represent
+      uniform categorical distributions with increasing number of categories.
+      Increasing possible outcomes increase the uncertainty, hence the entropy.
+      Last three circles demonstrate categorical distributions with equal
+      number of possible outcomes.
+      As the distribution diverge from the uniform distribution,
+      the uncertainty and entropy is reduced.
+    }\label{fig:entropy-demo}%
+\end{figure}
+
+By now,
+you should be able to calculate the entropy of a categorical distribution
+over \num{8} symbols,
+just like the letters in Table~\ref{tbl:binary-code-example}.
+Given that these letters are distributed uniformly
+(each having probability of $1/8$),
+the entropy of the distribution is \num{3} bits,
+which corresponds to how many bits we need for optimally coding the alphabet.
+We noted that we can do better if the distribution was not uniform.
+Let us assume that,
+the letter `a' occurs with probability $1/2$,
+the letter `b' occurs with probability $1/4$,
+the letter `c' occurs with probability $1/8$,
+the letter `d' occurs with probability $1/16$,
+and the other letters occur with probability $1/64$.
+Now, using trhee bits for all comibinations is just wasteful.
+We can do much better with the codes on Table~\ref{tbl:huffman-code-example}.
+The type of coding example here is called \emph{Huffmann} coding.
+Although the number of bits are variable,
+we can unabiguously determine each code with its prefix.
+One can easily show that this coding requires less storage or channel bandwidth
+on average.
+In fact,
+this corresponds to the entropy of the distribution,
+which is \num{2} bits:
+we save \num{1} bit on average.
+This is exactly another way to interpret entropy,
+it is the average code-length for the best achievable code
+for a given distribution.
+In other words,
+entropy gives us the upper bound on
+an optimal encoder (in terms of efficient channel utilization)
+in a noisy channel model (Figure~\ref{fig:noisy-channel}).
+\begin{margintable}
+  \caption{\label{tbl:huffman-code-example}
+    Example Huffman coding of an eight letter alphabet.
+  }
+  \begin{center}
+    \begin{tabular}{lrl}
+      \toprule
+      letter & prob &{code} \\
+      \midrule
+      a & $1/2$&  \num{0} \\
+      b & $1/4$&  \num{10} \\
+      c & $1/8$&  \num{110} \\
+      d & $1/16$& \num{1110} \\
+      e & $1/64$& \num{111100} \\
+      f & $1/64$& \num{111101} \\
+      g & $1/64$& \num{111110} \\
+      h & $1/64$& \num{111111} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{margintable}
+
+
+% \begin{margintable}
+%   \caption{\label{tbl:cond-prob-table}%
+%     Conditional probabilities of $P(\text{letter}\:\vert\:\text{dialect})$.
+%   }
+%   \begin{center}
+%     \setlength{\tabcolsep}{4pt}
+%     \begin{tabular}{lS[round-precision=3]S[round-precision=3]S[round-precision=3]}
+%       \toprule
+%       let. & {east} & {north} & {south} \\
+%       \midrule
+%       a & 0.2829786& 0.0326985& 0.283765\\
+%       b & 0.0413973& 0.0624915& 0.009443\\
+%       c & 0.0363760& 0.0465435& 0.116444\\
+%       d & 0.0892564& 0.0738920& 0.068607\\
+%       e & 0.2458984& 0.4862595& 0.165408\\
+%       f & 0.0241540& 0.0131360& 0.067122\\
+%       g & 0.0720066& 0.0647505& 0.000000\\
+%       h & 0.2079327& 0.2202285& 0.289211\\
+%       \bottomrule
+%     \end{tabular}
+%   \end{center}
+% \end{margintable}
+\begin{margintable}
+  \caption{\label{tbl:marginal-prob-table2}%
+    Joint probability table for letters and dialects
+    with marginal probabilities.
+    $P(D)$ is the (marginal) probability of dialects,
+    and $P(L)$ is the probability of letters in the corpus.
+    This is the same as Table~\ref{tbl:marginal-prob-table},
+    repeated here for convenience.
+  }
+  \begin{center}
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lS[round-precision=2]S[round-precision=2]S[round-precision=2]|S[round-precision=2]}
+      \toprule
+      let. & {east} & {north} & {south} & {$P(L)$} \\
+      \midrule
+      a & 0.1980850&0.0065397&0.0283765 & 0.2330012\\
+      b & 0.0289781&0.0124983&0.0009443 & 0.0424207\\
+      c & 0.0254632&0.0093087&0.0116444 & 0.0464163\\
+      d & 0.0624795&0.0147784&0.0068607 & 0.0841186\\
+      e & 0.1721289&0.0972519&0.0165408 & 0.2859216\\
+      f & 0.0169078&0.0026272&0.0067122 & 0.0262472\\
+      g & 0.0504046&0.0129501&0.0       & 0.0633547\\
+      h & 0.1455529&0.0440457&0.0289211 & 0.2185197\\
+      \midrule
+      $P(D)$  & 0.7&0.2&0.1 & 1.0\\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{margintable}
+To give a more concrete example,
+we re-introduce our dialects with eight letters from Chapter~\ref{chap:prob}.
+Table~\ref{tbl:marginal-prob-table2} lists the joint probabilities of 
+letters and dialects (east, north and south),
+as well as marginal probabilities.
+From this table,
+we can easily calculate the entropy of the distributions of letters for the 
+complete language,
+and the entropy of the letter distribution for each dialect.
+Now you should take a moment and try to phrase
+what high or low entropy means for letters or dialects.
+For the sake of making things more concrete,
+we will calculate the entropy of dialect distribution in our document set.
+The entropy of letter distribution over dialects
+\[
+  H(d) = -\left(0.7 \times log_{2} 0.7 + 0.2 \times log_{2} 0.2 + 0.1 \times log_{2} 0.1\right)
+       = \num{1.15678}
+\]
+is lower than a uniform distribution of letters over the dialects
+which is \num{1.584963}.
+In other words,
+by knowing $P(D)$, we gain \num{0.428183} bits of information,
+in comparison to a setting where the dialects were equally represented
+in the data.
+The distribution over individual letters is more interesting,
+you are encouraged to calculate the entropy of letters ($P(L)$)
+and compare it with a uniform distribution.
+Note that if you want to calculate entropy of letters within each dilaect,
+you need conditional probabilities, e.g., $P(L\given{}D=\text{east})$,
+for calculating letter-entropy values of individual dialects.
+%\todo{exercise}
+
+\begin{tcolorbox}
+  Note that entropy is about complete probability distributions,
+  while surprisal is about probabilities of individual events.
+\end{tcolorbox}
+
+\section{Mutual Information and conditional entropy}
+
+Another very important quantity from information theory used 
+widely in computational and corpus linguistics is \emph{mutual information}.
+Mutual information measures
+the amount of information obtained (reduced entropy) about a random variable,
+by knowledge of another random variable.
+Mutual information is a measure of dependence between two variables.
+If the variables are dependent (provide information about each other),
+then the mutual information will be high.
+If the variables are independent the mutual information will be \num{0}.
+
+As we did with introduction to entropy,
+we will first introduce another relevant measure,
+\emph{pointwise mutual information} (PMI),
+which measures the (in)dependence of two events.
+The PMI value for two events
+$X = x$ (or simply $x$) and $Y = y$ (or $y$) is calculated by
+\begin{equation}\label{eq:pmi}
+  \text{PMI}(x, y) = \log \frac{P(x,y)}{P(x)P(y)}
+\end{equation}
+A quick study of the formula indicates
+that pointwise mutual information is high
+if the joint probability of the two events involved is high.
+However,
+since the high-probability events can cooccur by chance frequently,
+the denominator of the term in Equation~\ref{eq:pmi} includes
+(marginal) probabilities of both events.
+Hence, it discounts the by-chance cooccurrences of the events
+due to high marginal probability.
+Remember that the joint probability of two independent events is
+the product of their probabilities ($P(x,y) = P(x) P(y)$,
+for independent events $x$ and $y$).
+As a result,
+the division within the logarithm in Equation~\ref{eq:pmi} will result in \num{1},
+and PMI will be \num{0}, for independent events.
+If two events are highly positively associated (they occur together),
+then PMI will be positive,
+and if events are highly negatively associated
+(one does not occur if the other event occurs),
+then the PMI value will be negative.
+
+Just for the sake of example,
+we will calculate the PMI of letter `e' occurring in the `east' dialect
+in the distribution presented in Table~\ref{tbl:marginal-prob-table2}.
+\[
+  \text{PMI}(\text{east},\text{e})
+    = log \frac{P(\text{east}, \text{e})}{P(\text{east})P(\text{e})}
+    = log \frac{\num{0.1721289}}{\num{0.7}\times \num{0.2859216}}
+    = \num{-0.2175571}
+\]
+Despite the fact that the joint probability of the two events is rather high,
+we find a negative association between them%
+---in `e', in fact, occurs less than chance in the eastern dialect.
+
+One of the most common uses of PMI is to find \emph{collocations},
+groups of words that occur frequently together.
+Using PMI,
+it is likely to find linguistically plausible collocations like,
+`corpus linguistics',
+even though it is much less likely than non-interesting frequent bigrams like `that the'.
+
+The \emph{mutual information} (MI) of two random variables
+is a measure of dependence of the variables.
+Mutual information is the expected value of (average) PMI.
+The mutual information of two discrete random variables $X$ and $Y$ is
+\begin{equation}\label{eq:mi}
+  \text{MI}(X, Y) 
+    = \sum_{x\in X} \sum_{y\in Y} P(x,y) \log \frac{P(x,y)}{P(x)P(y)} .
+\end{equation}
+
+Similar to PMI,
+a positive MI value indicates a positive association between
+the random variables,
+zero indicates independence (no association),
+and negative values indicate negative association.
+Like \emph{correlation} (Section~\ref{sec:correlation}),
+mutual information measures dependence between two random variables.
+However, unlike correlation, it is not limited to linear dependence.
+
+Mutual information is related to entropy
+through a measure known as \emph{conditional entropy}.
+We note the conditional entropy of a random variable $X$ given
+another random variable $Y$ takes the value $y$ as $H(X\given{}Y=y)$.
+Intuitively,
+if the event $Y=y$ gives information about the random variable $X$,
+we expect low conditional entropy.
+The conditional entropy of $X$ given $Y$,
+noted $H(X\given{}Y)$,
+is the average entropy of $X$ given $Y$.
+The conditional entropy of $X$ given $Y$ can be calculated by
+\begin{equation}\label{eq:conditional-entropy}
+  \begin{aligned}
+    H(X\given{}Y) &= & &\sum_{y\in Y} P(y) H(X\given{}Y=y)\\
+                  &= &- & \sum_{x\in X, y\in Y} P(x,y) \log P(x\given{}y)
+  \text{.\footnotemark}\\
+  \end{aligned}
+\end{equation}%
+\footnotetext{You are recommended to derive this equation.
+ Meanwhile, you may also want to show that
+ \[ 
+    H(X\given{}Y) = \sum_{x\in X, y\in Y} P(x,y) \log \frac{P(y)}{P(x,y)}
+ \]
+ is also correct.
+}
+
+The conditional entropy has also a straightforward interpretation.
+The conditional entropy $H(X\given{}Y)$ equals to
+the entropy of the variable $X$ ($H(X)$),
+if the variables are independent.
+As the dependence between variables increase,
+the conditional entropy will decrease.
+
+
+\begin{marginfigure}
+  \tikzsetnextfilename{entropy-mi-relation}
+  \begin{tikzpicture}
+%    \draw[help lines] (0,0) grid (5,5);
+    \node[draw,circle,minimum size=3.5cm,inner sep=0pt,fill=blue,opacity=0.2]
+      at (2,2) {};
+    \node[draw,circle,minimum size=3.5cm,inner sep=0pt,fill=red,opacity=0.2]
+      at (3,3) {};
+    \node at (0.7,3.7) {$H(X)$};
+    \node at (4.3,1.3) {$H(Y)$};
+    
+    \node at (1.3, 1.5) {$H(X\given{}Y)$};
+    \node at (3.7, 3.5) {$H(Y\given{}X)$};
+
+    \node at (2.5, 2.5) {$MI(X,Y)$};
+
+    \node at (3.5, 0) {$H(X,Y)$};
+  \end{tikzpicture}
+  \caption{\label{fig:entropy-mi}%
+    Relation between conditional entropy entropy and mutual information.
+    The total shaded area is the joint entropy of two variables $H(X,Y)$.
+  }
+\end{marginfigure}
+
+Note that entropy, conditional entropy, and mutual information are all related.
+Figure~\ref{fig:entropy-mi} shows the relationship between these measures
+schematically using a Venn diagram.
+For example, we can see from the figure that $H(X,Y) = H(X) + H(Y) - MI(X,Y)$.
+The total entropy associated with two random variables is reduced if the 
+mutual information (dependence) between them is high.
+If one of the variables ($Y$) completely determines the other ($Y$),
+the conditional entropy ($H(X|Y)$) will be \num{0},
+the joint entropy will be equal to the entropy of one one of the variables
+($H(Y)$),
+and mutual information will be equal to entropy of the other variable $H(X)$.
+The mutual information is symmetric ($MI(X,Y) = MI(Y,X)$),
+while conditional entropy is not ($H(X\given{}Y) \ne H(Y\given{}X)$). 
+Also note that the relationships
+between the information theoretic measures are additive,
+while the relationship between the corresponding probabilities are multiplicative.
+
+\section{Cross entropy}
+
+\emph{Cross entropy} is another important concept from information theory
+that has wide usage, particularly in machine learning.
+Remember that entropy gives us the best achievable compression
+given a distribution.
+In many practical cases we do not know the true distribution of the data,
+instead we use an approximate one.
+If we do not use the true distribution,
+inevitably, our code will be less optimum.
+This means that we will get higher entropy.
+If the true distribution is $P(x)$ and the its approximation is $\hat{P}(x)$,
+the cross entropy is defined as
+\begin{equation}
+  H(P, \hat{P}) = - \sum_{x} P(x) log \hat{P}(x) .
+\end{equation}
+The hat-notation used here is used for estimated objects.
+If $P$ was the true distribution,
+we would note an estimation of it as $\hat{P}$.
+Although this is most common context we will see cross entropy used,
+the distribution $\hat{P}$ does not have to be an estimate of $P$.
+Technically, the only requirement is
+that the distribution should have the same support.
+Note that the notation $H(X, Y)$ is also used for joint entropy,
+but for joint entropy the arguments are random variables
+noted like $X$ and $Y$,
+and for cross entropy distribution functions
+noted with letters like $P$ and $Q$.
+
+The formula above makes sense if you think about it
+in terms of the noisy channel model.
+Remember that we are coding the data using $\hat{P}$,
+hence the code length is determined by the approximate model.
+However, the average is taken over the true distribution,
+hence, we multiply by $P(x)$ not $\hat{P}(x)$.
+Cross entropy is always larger than entropy.
+Since we are using the wrong (approximate) distribution to code the data,
+the code length will not be optimum.
+As $\hat{P}$ gets closer to the $P$,
+the cross entropy will approach the entropy of $P$.
+Note that cross entropy is not symmetric ($H(P, Q) \ne H(Q, P)$).
+
+A very common use of cross entropy is as a \emph{loss function}
+in some machine learning methods.
+In many machine learning methods,
+training the model is equivalent to minimizing a loss function.
+Hence,
+as we minimize cross entropy of true distribution
+that comes from the training data
+and the approximate distribution the machine learning system produces,
+we get closer to the true distribution of the answers we are seeking.
+That way,
+the output of the machine learning model becomes
+more similar to the expected output.
+We will see example uses of cross entropy later in this course.
+
+\begin{margintable}
+  \caption{\label{tbl:east-overall}%
+    Probability distributions of letters in our hypothetical dialect data.
+    $P(L\given{}D=\text{east})$ is the distribution of letters
+    given the dialect is east dialect,
+    $P(L)$ is the marginal distribution of letters (for all dialects).
+  }
+  \begin{center}
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lS[round-precision=2]S[round-precision=2]}
+      \toprule
+      let. & {$P(L\given{}\text{east})$} & {$P(L)$} \\
+      \midrule
+      a & 0.2829786 & 0.2330012\\
+      b & 0.0413973 & 0.0424207\\
+      c & 0.0363760 & 0.0464163\\
+      d & 0.0892564 & 0.0841186\\
+      e & 0.2458984 & 0.2859216\\
+      f & 0.0241540 & 0.0262472\\
+      g & 0.0720066 & 0.0633547\\
+      h & 0.2079327 & 0.2185197\\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{margintable}
+For a concrete example,
+we return to the hypothetical dialects with \num{8}-letter alphabets
+in Table~\ref{tbl:marginal-prob-table2}.
+Assume that we do not know the distribution of the letters
+in the eastern dialect,
+and we are using the total distribution
+for coding (e.g., compressing) the data from the eastern dialect.
+Both distributions are summarized in Table~\ref{tbl:east-overall}.
+We simply calculate cross entropy by 
+\[
+  \begin{aligned}
+    H\left(P(L\given{}\text{east}), P(L)\right) 
+      = - \sum_{x\in \text{letters}} P(x\given{}\text{east}) \log_{2} P(x)
+      = \num[round-precision=3]{2.577201} .
+  \end{aligned}
+\]
+As expected,
+this is larger than entropy of $P(L\given{}\text{east})$,
+which is \num[round-precision=3]{2.562475} bits.
+
+\section{Perplexity}
+
+A measure related to entropy,
+used often in computational linguistic literature,
+is \emph{perplexity} (PP).
+Perplexity is simply the exponentiated version of entropy.
+If we measure entropy in bits, then the perplexity is
+\begin{equation*}
+  \text{PP}(X) = 2^{H(X)} .
+\end{equation*}
+
+Like entropy, perplexity measures uncertainty.
+However, since it measures it in a different scale,
+sometime it offers a more intuitive interpretation.
+Its main use in NLP is evaluating language models,
+which are conditional distributions on words given a history of earlier words.
+In this context, the intuitive interpretation is
+the average number of words expected after each word.
+
+\section{Kullback--Leibler divergence}
+
+\begin{marginfigure}
+  \tikzsetnextfilename{kl-divergence-viz}
+  \begin{tikzpicture}[
+      declare function={%
+        normpdf(\x,\m,\s) = exp(-(\x -\m)^2/(2*\s)^2) /%
+                                (\s*(2*pi)^0.5);%
+      }
+  ]
+      \begin{axis}[
+          axis lines=middle,
+          hide y axis,
+          enlargelimits=true,
+          samples=50,
+          x=4mm,
+          y=70mm,
+          ymin=0,
+          clip=false,
+          x axis line style={<->}
+      ]
+          \addplot[smooth, thick, blue, domain=-6:6,name path=curve1]
+            {normpdf(x,-0.5,1)};
+          \addplot[smooth, thick, red, domain=-6:6,name path=curve2]
+            {normpdf(x,0.5,1.2)};
+          \addplot[draw=none, domain=-6:6,name path=xax] {0};
+          \addplot[blue,opacity=0.2]
+            fill between[of=curve1 and xax,soft clip={domain=-5:5}];
+          \addplot[red,opacity=0.2]
+            fill between[of=curve2 and xax,soft clip={domain=-5:5}];
+          \node[blue] at (-4.2, 0.1) {$P$};
+          \node[red] at (3.8, 0.1) {$Q$};
+          \node (a) at (2, 0.15) {};
+          \node (kpq) at (4, 0.3) {$D_{KL}(P\;\Vert\;Q)$};
+          \draw[->] (a) --  (kpq);
+
+          \node (b) at (-1.6, 0.18) {};
+          \node (kqp) at (-4, 0.3) {$D_{KL}(Q\;\Vert\;P)$};
+          \draw[->] (b) --  (kqp);
+      \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:kl-diverngence}%
+    Visualization of KL divergences between two distributions.
+    Note, however, this is a demonstration to show the asymmetry
+    of measure, the areas indicated are not exactly what
+    KL-divergence measures.
+  }
+\end{marginfigure}
+Another important quantity we often see during this course is
+\emph{Kullback-Leibler divergence} which is also known as
+\emph{relative entropy}.
+It is often abbreviated as \emph{KL divergence}.
+Similar to cross entropy,
+KL divergence is a about two probability distributions with the same support.
+It measures the amount of information lost,
+or extra bits of entropy,
+while using a distribution $Q$ instead of using the true distribution $P$.
+It is defined as,
+\begin{equation}\label{eq:kl-divergence}
+  D_{KL} (P\;\Vert\;Q) = - \sum_{x} P(x) \log \frac{P(x)}{Q(x)}.
+\end{equation}
+It is the average logarithmic difference
+between distributions $P$ and $Q$,%
+\footnote{%
+  Remember that 
+  \[
+    \log \frac{a}{b} = \log(a) - \log(b) .
+  \]
+}
+where average calculated according to $P$.
+KL divergence is often used as a measure of difference
+between two distributions.
+However, it is not symmetric
+(as a result, it is not a proper distance measure).
+Figure~\ref{fig:kl-diverngence} visualizes the KL divergence
+between two continuous distributions.
+For continuous distributions,
+as usual,
+you can simply replace probability mass functions
+with probability density functions, 
+and summation with the integral in Equation~\ref{eq:kl-divergence}.
+
+For a concrete example,
+we will return to the question of using an approximate distribution,
+the marginal letter distribution,
+instead of one of the conditional distributions
+in our letter distribution example in Table~\ref{tbl:east-overall}.
+As in our cross entropy example,
+assume that we do not know the distribution of the eastern dialect,
+and approximating it with the marginal distribution.
+If we do the calculation,
+\[
+  D_{KL} \left(P(L\given{}\text{east})\;\Vert\;P(L)\right) = - \sum_{x} P(x|\text{east}) \log \frac{P(x|east)}{P(x)}
+  = \num[round-precision=3]{0.0147261}
+\]
+which is the amount of information we lose by using the marginal distribution
+instead of the dialect-specific distribution in bits.
+
+Conceptually,
+you should already be expecting a link between 
+the cross entropy and the KL divergence divergence.
+Cross entropy measures the entropy of a distribution ($P$) under 
+another distribution ($Q$),
+while KL divergence measures the amount of additional entropy if one uses one distribution ($Q$) instead of another ($P$).
+As a result,
+\[
+  H(P, Q) = H(P) + D_{KL}(P\;\Vert\;Q).
+\]
+
+You can easily verify this
+with our running example of dialect letter distributions as well
+(maybe with some rounding error).
+
+% \section*{Where to go from here}
+% 
+% \textcite{mackay2003}
+% 
+% \textcite{pierce1980}
+% 
+% \textcite{stone2015}
+% 
+% \textcite{ghahramani2003}
+% 
+% \textcite{shannon1948}
+% 
+% \textcite{seife2007}
+% 
+% \section*{Exercises}
+% 
+% % \begin{question}
+%   What is the name of the following measure?
+%   \[
+%     \log \frac{P(x\given{}y)}{P(x)}
+%   \]
+% \end{question}
+
+% p = c(0.2829786, 0.0413973, 0.0363760, 0.0892564, 0.2458984, 0.0241540, 0.0720066, 0.2079327)
+% q = c(0.2330012, 0.0424207, 0.0464163, 0.0841186, 0.2859216, 0.0262472, 0.0633547, 0.2185197)

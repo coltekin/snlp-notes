@@ -1,0 +1,1037 @@
+\chapter{\label{ch:math}Mathematical preliminaries}
+
+Many methods and applications of natural language processing require
+topics from mathematics.
+Being an interdisciplinary field,
+it is often difficult to assume
+that all students of computational linguistics possess a (fresh) knowledge of
+some of the mathematical topics and notation.
+This chapter provides a highly coarse overview
+of some topics in calculus and linear algebra.
+The discussion here is incomplete and informal.
+The interested reader should follow
+the references provided for in-depth treatments of these subjects.
+
+Section~\ref{sec:linear-intro} introduces some topics from linear algebra.
+We will mainly introduce vectors, matrices and operations on vectors and matrices.
+Again, these topics and notation will be important in discussing
+many of the machine learning methods.
+
+
+In Section~\ref{sec:calculus-intro},
+we will very briefly revisit derivatives and integrals.
+Particularly, derivatives are used for finding maxima or minima of functions,
+which is the basis for many of the machine learning methods.
+The integrals will also come back in our discussion of some of the machine learning methods,
+particularly in discussion of probabilistic learning and inference.
+
+\section{\label{sec:linear-intro}Linear algebra}
+
+In many NLP methods,
+we make heavy use of \term{vectors} and \emph{matrices},
+which are objects studied in \emph{linear algebra}.
+Vectors are used for representing \term{features} in many machine learning methods.
+Operations on vectors and matrices also have important applications.
+In this section we will review some of the properties of vectors and matrices,
+and the operations defined on them.
+If you had a linear algebra course,
+of if you know, for example, matrix multiplication,
+or dot product of vectors, you can safely skip this section.
+
+\subsection{Vectors}
+
+\begin{marginfigure}[5ex]
+  \tikzsetnextfilename{vector-magnitude-direction}
+  \begin{tikzpicture}
+    \draw[->,thick] (0,0) -- (1, 1);
+    \draw[blue,dotted] (-1,-1) -- (2, 2)
+      node[near end, above,font=\scriptsize,sloped] {direction};
+    \node[coordinate] (x) at ($(0.5,0)!(0,0)!(1.5,1)$) {};
+    \node[coordinate] (y) at ($(0.5,0)!(1,1)!(1.5,1)$) {};
+    \draw[dotted,gray]  (x) -- (0,0);
+    \draw[dotted,gray]  (y) -- (1,1);
+    \draw[<->,dotted,blue]  (x) -- (y)
+      node[midway,below,font=\scriptsize,sloped] {magnitude};
+  \end{tikzpicture}
+  \caption{\label{fig:single-vector-example}A graphical representation of a vector.}
+\end{marginfigure}
+A vector is a mathematical object with a magnitude and a direction.
+Graphically, we can represent or visualize a (two-dimensional) vector
+as in Figure~\ref{fig:single-vector-example}.
+More commonly,
+we represent vectors by an ordered list of number,
+such as $(1, 0, 1)$.
+A vector defined with $n$ real numbers is said to be in the vector space $\mathbb{R}^{n}$.
+We often write a vector of $n$ real numbers (vectors in $\mathbb{R}^{n}$) as
+$\vect{v} = (v_{1}, v_{2}, \ldots, v_{n})$.
+Note that the $\vect{v}$ that stands for the vector is typeset in boldface font.
+It can alternatively be marked with a arrow over it, like $\vec{v}$.
+Other notations for vectors of $n$ numbers include
+$\vect{v} = \langle v_{1}, v_{2}, \ldots, v_{n}\rangle$ or
+$\vect{v} = \begin{bmatrix} v_{1}\\ \vdots\\ v_{n}\\ \end{bmatrix}$.
+
+\begin{marginfigure}[5ex]
+  \tikzsetnextfilename{example-vectors}
+  \begin{tikzpicture}[scale=0.7]
+    \draw[<->,thick] (0, -4) -- (0, 4);
+    \node[anchor=west] at (0, 4) {y};
+    \draw[<->,thick] (-4, 0) -- (4, 0);
+    \node[anchor=south] at (4, 0) {x};
+    \draw[step=1cm,grid] (-4,-4) grid (4,4);
+    \draw[thick, ->,red] (0,0) -- (1,1);
+    \node[anchor=west,red] at (1,1) {$(1,1)$};
+    \draw[thick, ->,blue] (0,0) -- (1,3);
+    \node[anchor=west,blue] at (1,3) {$(1,3)$};
+    \draw[thick, ->,green] (0,0) -- (-1,-3);
+    \node[anchor=east,green] at (-1,-3) {$(-1,-3)$};
+  \end{tikzpicture}
+  \caption{\label{fig:vector-examples}Example vectors in 2-dimensional Euclidean space.}
+\end{marginfigure}
+Geometrically, we represent vectors as arrows as in Figure~\ref{fig:vector-examples}.
+The individual numbers on the notation represent their projection to the respective axis.
+In the example on the right,
+for example,
+the green and blue vectors have the same magnitude,
+but their direction is opposite of each other.
+If we take the projections of the vector to the $x$ and $y$ axes,
+they correspond to real first and the second number in our notation respectively.
+
+Many operations on (real) numbers have analogues forms for vectors,
+and they are used in many branches of science,
+as well as machine learning and natural language processing.
+
+\newthought{Vector norms} are
+a generalization of the magnitude of a vector.
+A \term{norm} assigns a non-negative \emph{length} or \emph{size} to a vector.
+Norms are used often in many machine learning methods,
+and they are related to distance metrics which by themselves are useful in comparing objects represented as (feature) vectors.%
+\footnote{The norm of a vector is the distance from its tail to its tip.}
+The most familiar norm is the Euclidean norm,
+which is also known as L2 (or L$^{\text{2}}$) norm.
+L2 norm of a vector $\vect{v} = (v_{1}, \ldots, v_{n})$ is
+
+\[
+  \norm{\vect{v}}_{2} = \sqrt{v_{1}^{2} + \ldots + v_{n}^{2}}\;.
+\]
+
+The subscript 2\ in $\norm{v}_{2}$ communicates that the norm is L2 norm.
+The L2 norm is often taken to be the default.
+If the subscript is omitted then we mean the L2 norm.
+Another interesting norm for our purposes is the L1 norm,
+which is related to the so-called taxi-cab, city-block or Manhattan distance.
+It is defined as
+
+\[
+  \norm{\vect{v}}_{1} = \lvert{}v_{1}\rvert + \ldots + \lvert{}v_{n}\rvert\;.
+\]
+
+\begin{marginfigure}[5ex]
+  \tikzsetnextfilename{regularization-l1-l2}
+  \begin{tikzpicture}
+    \draw[step=1cm,grid] (-1,-1) grid (4,4);
+    \draw[->,thick] (0, -1) -- (0, 4);
+    \node[anchor=west] at (0, 4) {y};
+    \draw[->,thick] (-1, 0) -- (4, 0);
+    \node[anchor=south] at (4, 0) {x};
+    \node[anchor=west,red] at (3,3) {$(3,3)$};
+    \draw[very thick,blue] (0,0) -- (3,3);
+    \draw[very thick,red,dotted] (0.05,0) -- (3,0) -- (3,0.05) -- (3,3);
+    \draw[very thick,orange,dotted] (0,0) -- (0,2) -- (1,2) -- (1,3) -- (3,3);
+    \draw[very thick,green,dotted]
+      (0,0) -- (1,0) -- (1,1) -- (2,1) -- (2,2) -- (3, 2) -- (3,3);
+  \end{tikzpicture}
+  \caption{\label{fig:l1-l2}%
+    Visualizations of L2(solid \textcolor{blue}{blue})
+    and example L1
+    (dotted \textcolor{green}{green},
+            \textcolor{orange}{orange}
+        and \textcolor{red}{red})
+    norms vector $(3,3)$.}
+\end{marginfigure}
+
+Figure~\ref{fig:l1-l2} visualizes the L1 and L2 norms
+in two-dimensional Euclidean space.
+Note that both apply to higher dimensional spaces as well.
+So for our example,
+\[ \norm{(3,3)}_{2} = \sqrt{3^{2} + 3^{2}} = \sqrt{18} \approx 4.24\]
+\[ \norm{(3,3)}_{1} = \lvert{}3\rvert + \lvert{}3\rvert = 6 \]\;.
+Like any other vector operation or property,
+vector norms can be generalized to vectors of any dimension.
+
+The concept of vector norm
+can also be generalized to any positive integer $p$
+the L$_{\text{p}}$ norm for an n-dimensional vector is defined as
+
+\[
+  \norm{\vect{v}}_{p} = \left(
+          \sum_{i=1}^{n} \lvert{}v_{i}\rvert^{p}
+        \right)^\frac{1}{p}
+\]
+
+In this course, we will only work with L1 and L2 norms defined above.
+
+\newthought{Scalar multiplication} is the operation of
+multiplying a vector with a scalar
+(for our purposes a scalar is a real number).
+Given a vector $\vect{v} = (v_{1},\ldots, v_{n})$,
+its multiplication with scalar $a$ is defined as
+
+\[
+  a \vect{v} = (a v_{1}, \ldots, a v_{2})
+\]
+
+Multiplying a vector with a positive scalar,
+changes its magnitude, `scales' it,
+but does not change its direction.
+Multiplying a vector with a negative scalar
+reverses the direction of the original vector.
+
+\begin{marginfigure}[-5ex]
+  \tikzsetnextfilename{scalar-multiplication}
+  \begin{tikzpicture}[scale=0.7]
+    \draw[<->,thick] (0, -4) -- (0, 4);
+    \draw[<->,thick] (-4, 0) -- (4, 0);
+    \draw[step=1cm,grid] (-4,-4) grid (4,4);
+%          \draw[->,line width=1mm, blue!40] (0,0) -- (2,4);
+    \draw[->,very thick, blue!40] (0,0) -- (2,4);
+    \node[anchor=north west, blue!40] at (2,4) {$2 \vect{v}$};
+    \draw[->,thick,red] (0,0) -- (1,2);
+    \node[anchor=west, red] at (1,2) {$\vect{v} = (1,2)$};
+    \draw[->,thick,green] (0,0) -- (-0.5,-1);
+    \node[anchor=east, green] at (-0.5, -1) {$-0.5 \vect{v}$};
+  \end{tikzpicture}
+  \caption{\label{fig:scalar-multipl}%
+    Scalar multiplication.
+  }
+\end{marginfigure}
+
+\newthought{Vector addition and subtraction}
+are defined on two vectors with the same dimensionality.
+For $n$-dimensional vectors $\vect{v} = (v_{1}, \ldots, v_{n})$
+and $\vect{w} = (w_{1}, \ldots, v_{w})$,
+\[
+  \vect{v} + \vect{w} = (v_{1} + w_{1} + \ldots + v_{n} + w_{n})
+\]
+The subtraction is simply addition with a negative vector,
+\[
+  \vect{v} - \vect{w} = \vect{v} + (-\vect{w}) = (v_{1} - w_{1} + \ldots + v_{n} - w_{n})
+\]
+
+\begin{marginfigure}
+  \tikzsetnextfilename{vector-sum}
+  \begin{tikzpicture}[scale=0.7]
+    \draw[<->,thick] (0, -4) -- (0, 4);
+    \draw[<->,thick] (-4, 0) -- (4, 0);
+    \draw[step=1cm,grid] (-4,-4) grid (4,4);
+    \draw[->,thick,red] (0,0) -- (1,2);
+    \node[anchor=east, red] at (1,2) {$\vect{v}$};
+    \draw[->,thick,blue] (0,0) -- (2,1);
+%    \draw[->, dotted,blue] (1,2) -- (3,3);
+    \draw[->, dotted,red] (2,1) -- (3,3);
+    \node[anchor=west, blue] at (2,1) {$\vect{w}$};
+    \draw[->, thick] (0,0) -- (3,3);
+    \node[anchor=south] at (3,3) {$\vect{v + w}$};
+    \draw[->,thick,purple] (0,0) -- (-2,-1);
+    \draw[->,purple,dotted] (1,2) -- (-1,1);
+    \node[anchor=north, purple] at (-2, -1) {$-\vect{w}$};
+    \draw[->,thick,black] (0,0) -- (-1,1);
+    \node[anchor=south,xshift=-0.5em] at (-1, 1) {$\vect{v}-\vect{w}$};
+  \end{tikzpicture}
+  \caption{\label{fig:vector-sum}%
+    Vector addition and subtraction.
+  }
+\end{marginfigure}
+
+\newthought{Dot product} is a very important quantity that will come up regularly in this course.
+Dot product of two vectors,
+$\vect{v} = (v_{1}, \ldots, v_{n})$
+and $\vect{w} = (w_{1}, \ldots, v_{w})$,
+is a scalar defined as:
+
+\[
+  \vect{v}\cdot\vect{w} = v_{1} \times w_{1} + \ldots + v_{n} \times w_{n}
+\]
+
+It should be emphasized that dot product yields a scalar (real number),
+not a vector.
+There are other vector product operations:
+\emph{outer product} that we will discuss below,
+and \emph{cross product} defined for vectors in $\mathbb{R}^{3}$.
+Hence, without `dot' the notation $\vect{v}\vect{w}$ is ambiguous.
+However, it is common to treat $k$-dimensional vectors
+as $k\times{}1$ matrices for which multiplication is not ambiguous
+(we discuss this notation on page~\pageref{pageref:vector-matrix-notation}.
+
+
+\begin{marginfigure}
+  \tikzsetnextfilename{dot-product}
+  \begin{tikzpicture}[scale=0.7]
+    \draw[step=1cm,grid] (-4,-4) grid (4,4);
+    \draw[<->,thick] (0, -4) -- (0, 4);
+    \draw[<->,thick] (-4, 0) -- (4, 0);
+    \coordinate (origin) at (0,0);
+    \draw[->,thick,red] (0,0) -- (2,2);
+    \node[anchor=east, red] (v) at (2,2) {$\vect{v}$};
+    \draw[->,thick,blue] (0,0) -- (3,1);
+    \node[anchor=west, blue] (w) at (3,1) {$\vect{w}$};
+    \draw[dashed] (2,2) -- (2.4, 0.8);
+    \draw [decorate,decoration={brace,amplitude=7pt,mirror,raise=4pt}]
+      (0,0) -- (2.4, 0.8);
+    \pic [draw, "{\small $\alpha$}", angle eccentricity=1.5]
+      {angle = w--origin--v};
+      \node[anchor=north,rotate=20] at (1.5,-0.1) {$\norm{v}\cos\alpha$};
+  \end{tikzpicture}
+  \caption{\label{fig:dot-product}%
+    Dot product of two vectors.
+  }
+\end{marginfigure}
+There is an alternative way to define the dot product,
+which also leads to a nice geometric interpretation.
+We can calculate the dot product as
+
+\[
+  \vect{v}\cdot\vect{w} = \norm{\vect{v}}\norm{\vect{w}} \cos \alpha
+\]
+where $\alpha$ is the angle between the two vectors
+(see Figure~\ref{fig:dot-product}).
+This also allows us to interpret the dot product geometrically.
+The dot product of two vectors is proportional to each vector's magnitude,
+and also to the cosine of the angle between them.
+Since the cosine of the angle will be larger for smaller angles,
+the dot product will be larger for vectors that point to similar directions
+(keeping the magnitudes constant).
+The dot product of two orthogonal vectors
+(vectors with a \num{90}\textdegree{} angle between them)
+is \num{0}.
+If the angle is larger tan \num{90}\textdegree{},
+the dot product is negative.
+
+
+
+\newthought{Cosine similarity} is a similarity measure related to dot product,
+which we will often use for measuring similarities between objects of interest,
+e.g., documents.
+From above, we can simply write the cosine of the angle between two vectors as,
+
+\[ \cos\alpha = \frac{\vect{v}\vect{w}}{\norm{\vect{v}}\norm{\vect{w}}} \]
+
+Note that by dividing the vectors to their Euclidean (L2) norms,
+we are scaling them to unit vectors pointing in the same direction.
+As a result, cosine similarity ignores the magnitudes of the vectors.
+The cosine similarity for vectors that point to the same direction is $1$
+(regardless of their magnitude) and the vectors
+that point exact opposite directions have a cosine similarity of $-1$.
+
+\todo[inline]{Cross product (?)}
+
+\subsection{Matrices}
+
+Matrices are the second type of mathematical objects we often encounter in various NLP methods.
+A matrix is simply a two-dimensional array of numbers,
+which is noted as a rectangular placement of scalars.
+A matrix of $n$ rows and $m$ columns is an $n \times m$ matrix.
+A real-valued $n \times m$ matrix is said to be in $\mathbb{R}^{n\times m}$.
+We can think about a matrix as a collection of column or row vectors.
+We denote matrices with boldface capital letters, like \vect{A}.
+While referring to a matrix' elements,
+we subscript the element first with its row and then its column.
+  \[ \vect{A} =
+    \begin{bmatrix}
+      a_{1,1} & a_{1,2} & a_{1,3} & \ldots & a_{1,m} \\
+      a_{2,1} & a_{2,2} & a_{2,3} & \ldots & a_{2,m} \\
+      \vdots  & \vdots  & \vdots  & \ddots & \vdots \\
+      a_{n,1} & a_{n,2} & a_{n,3} & \ldots & a_{n,m} \\
+    \end{bmatrix}
+  \]
+
+We will briefly revisit some of the operations on matrices in this section.
+
+\newthought{Transpose of a matrix} simply replaces its rows by columns.
+Transpose of a matrix $\vect{A}$ is denoted with $\vect{A}^{T}$.
+
+\begin{center}
+  If $\vect{A} = \begin{bmatrix} a & b \\ c & d \\ e & f \\ \end{bmatrix}$,
+  $\vect{A}^{T} = \begin{bmatrix} a & c & e\\ b & d  & f \\ \end{bmatrix}$.
+\end{center}
+
+\newthought{Multiplication by a scalar} is also defined for matrices.
+To multiply a matrix with a scalar,
+each element of the matrix is multiplied by the scalar.
+For example,
+\[
+    2 \begin{bmatrix} 2 & 1 \\ 1 & 4 \\ \end{bmatrix} =
+    \begin{bmatrix}
+      2\times{}2 & 2\times{}1 \\
+      2\times{}1 & 2\times{}4 \\
+    \end{bmatrix} =
+    \begin{bmatrix}
+      4 & 2 \\
+      2 & 8 \\
+    \end{bmatrix}
+\]
+
+\newthought{Matrix addition and subtraction} require two matrices of same dimensions.
+To obtain sum (difference) of two matrices,
+each element of the second matrix is added to (subtracted from)
+the corresponding element of the first matrix.
+For example:
+
+  \[
+      \begin{bmatrix}
+        2 & 1 \\
+        1 & 4 \\
+      \end{bmatrix} +
+      \begin{bmatrix}
+        0 & 1 \\
+        1 & 0 \\
+      \end{bmatrix} =
+      \begin{bmatrix}
+        2+0 & 1+1 \\
+        1+1 & 4+0 \\
+      \end{bmatrix} =
+      \begin{bmatrix}
+        2 & 2 \\
+        2 & 4 \\
+      \end{bmatrix}
+  \]
+
+\newthought{Matrix multiplication} is a slightly complicated operation.
+The matrix multiplication $\vect{A}\times\vect{B}$ is defined only
+if \vect{A} has the same number of columns as the number of rows in \vect{B}.
+Multiplying a $n\times{}k$ matrix with a $k\times{}m$ matrix
+results in a $n\times{}m$ matrix.
+Note that both $A\times{}B$ and $B\times{}A$ is defined only for square matrices (of the same dimensions).
+
+For an $n\times{}k$ matrix \vect{A}
+and a $k\times{}m$  \vect{B},
+if $\vect{A} \times \vect{B} = \vect{C}$,
+$c_{i,j}$, the element of the resulting matrix \vect{C} on row $i$ and column $j$,
+is calculated as:
+
+\[
+  c_{ij} = \sum_{\ell=0}^{k} a_{i\ell} b_{\ell j}
+\]
+
+Figure~\ref{fig:matrix-mult} demonstrates the matrix multiplication.
+
+\begin{figure*}
+  \tikzsetnextfilename{matrix-multiplication}
+  \begin{tikzpicture}[ampersand replacement=\&]
+    \matrix (A) [matrix of math nodes,
+                 left delimiter  = {[},
+                 right delimiter  = {]}] at (0,0) {%
+      \textcolor{blue}{a_{11}} \&
+      \textcolor{blue}{a_{12}} \&
+      \textcolor{blue}{\ldots} \&
+      \textcolor{blue}{a_{1k}} \\
+      a_{21} \&
+      a_{22} \&
+      \ldots \&
+      a_{2k} \\
+       \vdots \& \vdots \& \ddots \& \vdots \\
+      a_{n1} \&
+      a_{n2} \&
+      \ldots \&
+      a_{\textcolor{red}{nk}} \\
+    };
+    \node[right of=A,anchor=west,xshift=1.5cm] {\Huge$\times$};
+    \matrix (B) [matrix of math nodes,
+                 left delimiter  = {[},
+                 right delimiter  = {]}] at (6,0) {%
+      b_{11} \&
+     \textcolor{blue}{b_{12}} \&
+      \ldots \&
+      b_{1m} \\
+      b_{21} \&
+      \textcolor{blue}{b_{22}} \&
+      \ldots \&
+      b_{2m} \\
+      \vdots \&
+      \textcolor{blue}{\vdots} \&
+      \ddots \&
+      \vdots \\
+      b_{k1} \&
+      \textcolor{blue}{b_{k2}} \&
+      \ldots \&
+      b_{\textcolor{red}{km}} \\
+    };
+    \node[right of=B,anchor=west,xshift=1.5cm] {\Huge$=$};
+    \matrix (C) [matrix of math nodes,
+                 left delimiter  = {[},
+                 right delimiter  = {]}] at (12,0) {%
+       c_{11} \&
+       \textcolor{blue}{c_{12}} \&
+       \ldots \&
+       c_{1m} \\
+       c_{21} \&
+       c_{22} \&
+       \ldots \&
+       c_{2m} \\
+       \vdots \&
+       \vdots \&
+       \ddots \&
+       \vdots \\
+       c_{n1} \&
+       c_{n2} \&
+       \ldots \&
+       c_{\textcolor{red}{nm}} \\
+    };
+    \draw[blue]  (A-1-1.south west) rectangle (A-1-4.north east);
+    \draw[blue]  (B-1-2.north west) rectangle (B-4-2.south east);
+    \node[below=of C, yshift=5ex,blue]
+        {$c_{12} = a_{11} b_{12} + a_{12} b_{22} + \ldots a_{1k} b_{k2}$};
+  \end{tikzpicture}
+  \caption{Matrix multiplication.
+    The calculation of the resulting matrix \textcolor{blue}{$c_{12}$} is highlighted.
+  }\label{fig:matrix-mult}
+\end{figure*}
+
+Note that the element $c_{ij}$ is the dot product of
+$i^{th}$ row vector of \vect{A} and $j^{th}$ column vector of \vect{B}.
+Hence, we can view dot-product as matrix multiplication
+of a row vector (on the left) and column vector (on the right).
+Dot product of two vectors \vect{v} and \vect{w} is often noted as
+$\vect{v}\vect{w}^{T}$.%
+\footnote{It is a common convention to assume that vectors are column vectors
+  unless stated otherwise.}
+Technically,
+result of a matrix multiplication of a $1\times{}k$ vector with a $k\times{}1$
+vector is a $1\times{}1$ matrix,
+not a scalar.
+However, this notation is prevalent in machine learning and NLP literature,
+we will often use this notation during this course.
+
+\label{pageref:vector-matrix-notation}
+For example, $\vect{w} = (2, 2)$ and $\vect{v} = (2, -2)$,
+
+\[
+  \vect{v}\vect{w}^{T} = \begin{bmatrix}
+    2 \\ -2 \\
+  \end{bmatrix}
+  \times
+  \begin{bmatrix}
+    2 & 2 \\
+  \end{bmatrix}
+  = 2\times{}2 + 2\times{}-2 = 4 - 4 = 0
+\]
+
+\marginnote{What does the result of dot product ($0$) say about the vectors?}
+
+\newthought{Outer product} of two vectors with the same dimensionality,
+can also be defined as matrix multiplication.
+This time we put the column vector to the left and the row vector to the right.
+So, in the notation used above, outer product of two matrices \vect{v} and \vect{w} is
+$\vect{v}^{T}\vect{w}$.
+Note that result of outer product of two $k$-dimensional vectors is
+a $k\times{}k$ matrix, not a scalar.
+The following is an example of outer product of two $3$-dimensional vectors.
+
+\[
+  \begin{bmatrix}
+    1 & 2 & 3\\
+  \end{bmatrix}
+  \times
+  \begin{bmatrix}
+    6 \\ 5  \\ 4 \\
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+    6  & 5 & 4 \\
+    12  & 10 & 8 \\
+    18  & 15 & 12 \\
+  \end{bmatrix}
+\]
+
+\todo[inline]{Relation to SVD / variance ?}
+
+\newthought{An identity matrix} is a square matrix
+in which all the elements of the main diagonal are ones,
+and all other elements are zeros.
+The $n\times{}n$ identity matrix is denoted by $\vect{I}_{n}$.
+When there is no ambiguity, we omit the subscript, and simply write \vect{I}.
+Multiplying a matrix with a compatible identity matrix does not change the original matrix.
+For $n \times m$ matrix \vect{A},
+\[
+  \vect{I}_{n} \vect{A} = \vect{A} \quad \vect{A} \vect{I}_{m} = \vect{A}
+\]
+
+\begin{marginfigure}
+  \[
+    \vect{I}_{4} =
+    \begin{bmatrix}
+      1 & 0 & 0 & 0\\
+      0 & 1 & 0 & 0\\
+      0 & 0 & 1 & 0 \\
+      0 & 0 & 0 & 1 \\
+    \end{bmatrix}
+  \]
+  \caption{\label{fig:identity-matrix}$4\times{}4$ identity matrix.}
+\end{marginfigure}
+
+\newthought{Multiplying a vector with a matrix} (linearly) transforms it to another
+(possibly a different dimensional) vector.
+These linear transformations have many applications,
+and they will also be useful for understanding some of the machine learning concepts.
+Here are a few interesting transformations in 2-dimensional space:
+
+\begin{itemize}
+  \item Identity transformation has no effect on the vector to be transformed
+    \[
+      \begin{bmatrix}
+        1 & 0 \\
+        0 & 1 \\
+      \end{bmatrix}
+      \times
+      \begin{bmatrix}
+        1 \\
+        2 \\
+      \end{bmatrix}
+      =
+      \begin{bmatrix}
+        1 \\
+        2 \\
+      \end{bmatrix}
+    \]
+  \item Stretch along x-axis
+    \[
+      \begin{bmatrix}
+        3 & 0 \\
+        0 & 1 \\
+      \end{bmatrix}
+      \times
+      \begin{bmatrix}
+        1 \\
+        2 \\
+      \end{bmatrix}
+      =
+      \begin{bmatrix}
+        3 \\
+        2 \\
+      \end{bmatrix}
+    \]
+  \begin{marginfigure}
+    \tikzsetnextfilename{linear-op-stretch}
+    \begin{tikzpicture}[scale=0.7]
+      \draw[step=1cm,grid] (-4,-1) grid (4,4);
+      \draw[->] (0,-1) -- (0, 4);
+      \draw[<->] (-4,0) -- (4,0);
+      \coordinate (v1) at (1,2);
+      \coordinate (v2) at (3,2);
+      \draw[blue,thick,->] (0,0) -- (v1);
+      \node[anchor=south east]  at (v1) {$(1,2)$};
+      \draw[orange,thick,->] (0,0) -- (v2);
+      \node[anchor=south west]  at (v2) {$(3,2)$};
+      \draw[dotted,->,thick] (v1) to[bend left] (v2);
+    \end{tikzpicture}
+    \caption{Stretch (three times) along x.}
+  \end{marginfigure}
+  \item Multiplying a vector with
+    \[
+        \begin{bmatrix}
+          \cos\theta & -\sin\theta \\
+          \sin\theta & \cos\theta \\
+        \end{bmatrix}
+    \]
+  rotates it with $\theta$ degrees (counter-clock wise).
+  For example, for 90-dgrees rotation,
+    \[
+      \begin{bmatrix}
+        0 & -1 \\
+        1 & 0 \\
+      \end{bmatrix}
+      \times
+      \begin{bmatrix}
+        1 \\
+        2 \\
+      \end{bmatrix}
+      =
+      \begin{bmatrix}
+        -2 \\
+        1 \\
+      \end{bmatrix}
+    \]
+  \begin{marginfigure}
+    \tikzsetnextfilename{linear-op-rotate}
+    \begin{tikzpicture}[scale=0.7]
+      \draw[step=1cm,grid] (-4,-1) grid (4,4);
+      \draw[->] (0,-1) -- (0, 4);
+      \draw[<->] (-4,0) -- (4,0);
+      \coordinate (v1) at (1,2);
+      \coordinate (v2) at (-2,1);
+      \draw[blue,thick,->] (0,0) -- (v1);
+      \node[anchor=south west]  at (v1) {$(1,2)$};
+      \draw[orange,thick,->] (0,0) -- (v2);
+      \node[anchor=south east]  at (v2) {$(-2,1)$};
+      \draw[dotted,->,thick] (v1) to[bend right] (v2);
+    \end{tikzpicture}
+    \caption{Rotate 90 degrees.}
+  \end{marginfigure}
+%  \item Shear: $\begin{bmatrix}1 & k \\ 0 & 1 \\\end{bmatrix}$
+\end{itemize}
+
+These linear operations can be combined (composed)
+for more complex transformations.
+
+\newthought{Solving a set of linear linear equations} has been one of
+the main applications of linear algebra.
+We will not discuss how to solve a linear equations here
+(since we rarely do this by hand),
+but we will demonstrate how a set of linear equations are represented using matrices
+and vectors.
+We will encounter this in various forms during the course.
+
+The set of equations,
+    \[
+      \begin{array}{rcrcr}
+        2x_{1} &+& x_{2}  &=& 6 \\
+        x_{1}  &+& 4x_{2} &=& 17 \\
+      \end{array}
+    \]
+    can be written as:
+    \[
+      \underbrace{\begin{bmatrix} 
+        2 & 1 \\ 
+        1 & 4 \\ 
+      \end{bmatrix}}_{\vect{W}}
+      \underbrace{\begin{bmatrix} 
+        x_{1} \\ 
+        x_{2} \\ 
+      \end{bmatrix}}_{\vect{x}} 
+      = 
+      \underbrace{\begin{bmatrix} 
+        6 \\ 
+        17 \\ 
+      \end{bmatrix}}_{\vect{b}}
+    \]
+which allows finding a solution (if one exists)
+using \emph{Gaussian elimination}.
+
+For our purposes,
+important part is to realize that
+this amounts to the matrix/vector operations operations
+we have been reviewing so far.
+
+\newthought{Inverse of a matrix} is defined for square matrices. 
+Inverse of matrix \vect{W} is denoted by $\vect{W}^{-1}$.
+Multiplying a matrix with its inverse yields the identity matrix.
+\[
+  \vect{W}\vect{W}^{-1} = \vect{W}^{-1} \vect{W} = \vect{I}
+\]
+
+Now that we have defined the inverse of a matrix,
+we can solve the set of linear equations $\vect{W}\vect{x} = \vect{b}$,
+using the inverse matrix.
+\[ 
+  \begin{aligned}
+    \vect{W} \vect{x} &= \vect{b} \\
+    \vect{W}^{-1} \vect{W} \vect{x} &= \vect{W}^{-1} \vect{b} \\
+    \vect{I} \vect{x} &= \vect{W}^{-1} \vect{b} \\
+    \vect{x} &= \vect{W}^{-1} \vect{b} \\
+  \end{aligned}
+\]
+
+\todo[inline]{note `pseudo inverse' ?}
+Calculating inverse of a matrix involves using a set of operations,
+called \emph{elementary row operations},
+on the augmented matrix that contains the original matrix and the identity matrix side by side.
+We will not cover this here, as we rarely do this by hand.
+Interested readers should check any of the linear algebra sources listed at the end of the chapter.
+
+\newthought{The determinant of a matrix} is a scalar value
+with some interesting properties and applications, including
+\begin{itemize}
+  \item A matrix is invertible if it has a non-zero determinant
+  \item A system of linear equations has a unique solution if the coefficient matrix has a non-zero determinant
+\end{itemize}
+
+We denote the determinant of a matrix with vertical bars around it,
+determinant of \vect{A} is denoted by $\lvert\vect{A}\rvert$.
+Geometric interpretation of determinant is the (signed) changed in the volume of a unit (hyper)cube caused by the transformation defined by the matrix.
+
+The determinant of a $2\times{}2$ matrix can be calculated by the formula:
+\[
+  \begin{vmatrix}
+    a & b \\
+    c & d \\
+  \end{vmatrix} = a d - b c
+\]
+The above formula generalizes to higher dimensional matrices through a recursive definition.
+\todo{definition, geometric interpretation}
+
+\newthought{Eigenvalues and eigenvectors} of a matrix also has important applications.
+
+An \emph{eigenvector}, \vect{v}
+and corresponding \emph{eigenvalue}, $\lambda$,
+of a matrix $\vect{A}$ is defined such that
+\[ \vect{A} \vect{v} = \lambda \vect{v}\;. \] 
+
+In (other) words, multiplying a matrix with its eigen vector
+only changes its magnitude of the vector
+and does not change its direction.
+
+Eigenvalues an eigenvectors have many applications from communication theory to quantum mechanics
+A better known example (and close to home) is Google's PageRank algorithm
+We will return to them while discussing PCA
+and SVD (and maybe other topics/concepts)
+
+\todo[inline]{Tensors}
+
+\section{\label{sec:calculus-intro}Derivatives and integrals}
+
+Differentiation and integration are two fundamental concepts in calculus.
+The reason we review some of the basic calculus here has to do
+with the fact that these operations are often used
+in probability theory and machine learning.
+In many machine learning problems,
+learning is achieved through minimizing the error
+or maximizing an objective (e.g., likelihood).
+A particularly important use of derivatives in machine learning is
+to find maxima or minima of error or objective function.
+This section will give a refresher on these topics,
+and define some notation that we will use throughout the course. 
+You can safely skip this section,
+if you know how to differentiate polynomial functions
+or what a \emph{gradient} is.
+
+Derivative of a function indicates the rate of change.
+The familiar example from physics is that
+the derivative of the velocity of a moving object is it acceleration.
+For example,
+the velocity of a car changes proportional to its acceleration of deceleration.
+
+\marginnote{
+  \begin{tcolorbox}[colback=white,colframe=gray,halign=left,width=\linewidth]
+    A quick refresher on polynomial functions: if $f(x) = x^{n}$,
+    \[
+      f'(x) = \frac{df}{dx}  = n x^{n-1}\;.
+    \]
+    For example, for\\
+      $f(x) = x^{3} + 2 x^{2}$,
+    \[
+      f'(x) = \frac{df}{dx} = 3 x^{2} + 4 x\;.
+    \]
+  \end{tcolorbox}
+}
+One of the common ways of denoting a function's derivative is,
+using the `prime notation'.
+For example derivative of the function function $f(x)$ written as $f'(x)$.
+Another common notation is $\frac{df}{dx}(x)$ or $\frac{df}{dx}(x)$.\todo{double check}
+For multi-variate functions,
+this notation makes it clear that the derivative is taken with respect to the variable $x$.
+
+If defined, derivative of a function is another function.
+A well known example is the polynomials,
+whose derivatives are lower degree polynomials.
+For example, if $f(x) = x^{2} - 2 x $ then $f'(x) = 2 x - 2$,
+which means that the rate of change of a quadratic function doubles
+as $x$ is increased one unit.
+Note that if a polynomial of degree $n$ is differentiated $n$ times,
+it becomes a constant.
+Derivative of a linear function is a constant value,
+since a linear function changes with the same rate everywhere.
+On the other hand, derivative of a constant (function) is $0$,
+since there is no change.
+
+\begin{marginfigure}
+  \tikzsetnextfilename{func-derivative}
+  \begin{tikzpicture}[scale=0.7]
+    \draw[step=1cm,grid] (-4,-2) grid (4,4);
+    \draw[->] (0,-2) -- (0, 4);
+    \draw[<->] (-4,0) -- (4,0);
+    \begin{scope}
+      \clip(-4,-2) rectangle (4,4);
+      \draw[domain=-2:4,smooth,variable=\x,blue]
+        plot ({\x},{\x*\x - 2*\x});
+
+      \node[blue,xshift=0.2ex] at (1,2) {$f(x) = x^{2} - 2x$};
+
+      \node[orange,inner sep=0pt,draw,circle,minimum size=2pt]
+        at (1,-1) {};
+      \node[orange,anchor=north] at (1,-1) {$f'(1) = 0$};
+      \draw[orange] (-4,-1) -- (4, -1);
+
+      \begin{scope}
+      \clip(-4,-0.5) rectangle (4,4);
+        \node[purple,inner sep=0pt,draw,circle,minimum size=2pt]
+          at (3,3) {};
+        \node[purple,anchor=south east] at (3,3) {$f'(3) = 4$};
+        \draw[purple] (4, 7) -- (3,3) -- (2, -1);
+
+        \node[red,inner sep=0pt,draw,circle,minimum size=2pt]
+          at (-0.5,1.25) {};
+        \draw[red] (-1.5, 4.25) -- (-0.5,1.25) -- (0.5, -1.75);
+        \node[red,anchor=north east] at (-0.5,1.25) {$f'(-0.5) = -3$};
+      \end{scope}
+    \end{scope}
+  \end{tikzpicture}
+  \caption{The function $f(x) = x^{2} - 2x$ and its derivative evaluated at,
+    different $x$ values.
+  }
+\end{marginfigure}
+When evaluated at a particular $x$ value,
+the derivative of the function will be
+the slope of the tangent line at that point,
+which is indication of the direction and the rate of change.
+Note that in our example above,
+the derivative of $f(x) = x^{2} - 2x$, $f'(x) = 2 x - 2$,  at $x = 1$ is $0$.
+For a continuous function the derivative of the function is equal to $0$,
+only on the maximum and minimum points of the function.
+And this is the most important reason for all the earlier
+notes in this introduction.
+In many methods we see later on,
+we will be aiming at maximizing or minimizing functions,
+where this will be a handy tool.
+In general,
+derivative evaluated at a particular point will be $0$ for maxima and minima
+of functions,
+it will be a negative value if the function is decreasing (as $x$ increases),
+and a positive value if the function is increasing with $x$.
+
+So far,
+we've considered differentiation of functions of a single variables.
+In machine learning and NLP,
+we often deal with functions of many variables.
+One can also differentiate a function of multiple variables with respect to one of them,
+for which the dependence between the variables should be considered.
+We will not review how to take (total) derivatives
+of functions of multiple variables.
+However, we will introduce \term{partial derivatives} briefly here.
+A partial derivative is similar to a total derivative,
+but we assume that except the variable along which we take the derivative,
+all other variables are constants.
+So, when you evaluate the partial derivative of a function at a particular point,
+it gives you the rate of change along one of the axes.
+
+\todo[inline]{note the chain rule and the relation between partial/total derivative?}
+The partial derivative of a function $f$ with respect variable $x$ is denoted by $\frac{\partial f}{\partial x}$.
+For example, if $f(x, y) = x^{3} + yx$, 
+\[
+  \frac{\partial f}{\partial x}  = 3 x^{2} + y,\; \text{and}\; 
+  \frac{\partial f}{\partial y}  = x .
+\]
+The vector formed by all partial derivatives
+of a (scalar) function of $n$-variables is called its \term{gradient}.
+Gradient of a function $f$ is denoted by $\nabla f$, or $\vec{\nabla} f$.
+\[
+  \nabla f(x_{1}, \ldots, x_{n}) = 
+        \left(\frac{\partial f}{\partial x_{1}}, \ldots,
+              \frac{\partial f}{\partial x_{n}} \right)
+\]
+Similar to derivative of a function of a single variable,
+gradient points to the direction of greatest change,
+and the magnitude of the gradient indicates the steepness of the change.
+Areas where the gradient is \num{0} are (local) minima, maxima and saddle points.
+As a result, it is an important tool
+in finding minimum and maximum values of (objective) functions.
+
+\todo[inline]{Second derivative, picture with a saddle point, Jacobian matrix(?)}
+
+
+\begin{marginfigure}[-5\baselineskip]
+  \tikzsetnextfilename{integration}
+  \begin{tikzpicture}[x=10mm, y=2mm, scale=0.7]
+    \draw[step=1cm,grid] (-4,-2) grid (4,30);
+    \clip(-4,-2) rectangle (4,30);
+    \draw[->] (0,-2) -- (0, 30);
+    \draw[<->] (-4,0) -- (4,0);
+
+     \draw[domain=-4:4,smooth,variable=\x,blue]
+       plot ({\x},{3*\x*\x});
+      \fill[blue,opacity=0.2] 
+        plot[domain=1:3,smooth,variable=\x] ({\x},{3*\x*\x}) 
+        -- (3,0) -- (1,0) -- cycle;
+%        plot coordinates {(3,27) (3,0) (1,0) (1,3) };
+  \end{tikzpicture}
+  \caption{\label{fig:integral}%
+    Integral of the function $f(x) = 3 x^{2}$ in range $[1, 3]$.
+  }
+\end{marginfigure}
+\newthought{Integration} is the inverse of the derivation.
+In general, the integral of a function in a given range corresponds
+to the (signed) area (or volume) under a function in this range.
+The notation used for integral of a function $f(x)$ is
+$F(x) = \int f(x) dx$.
+This is called an indefinite integral.
+Often we want the integral of a function in an interval $[a,b]$,
+which can be calculated by
+\[
+  \int_{a}^{b} f(x) dx = F(b) - F(a).
+\]
+
+For example, if $f(x) = 3 x^{2}$,
+we know that $F(x) = x^{3}$ (since the integral is the antiderivative,
+and $F'(x) = f(x) = 3 x^{2}$).
+If we want to know the area under $f(x)$ within range $[1, 3]$,
+we simply calculate $F(1) - F(0) = 27 - 1 = 26$.
+
+\begin{marginfigure}
+  \tikzsetnextfilename{numeric-integral1}
+  \begin{tikzpicture}[x=10mm, y=5mm]
+    \draw[step=1cm,grid] (-0.2,-0.2) grid (4,4);
+    \clip(-0.2,-0.2) rectangle (4,4);
+    \draw[->] (0,-0.2) -- (0, 4);
+    \draw[->] (-0.2,0) -- (4,0);
+
+     \draw[domain=-4:4,smooth,variable=\x,blue]
+       plot ({\x},{0.25*\x*\x});
+     \foreach \x in {1,...,6}{%
+       \fill[draw=black,blue,opacity=0.2]
+        (0.5*\x, 0.25*0.25*\x*\x) rectangle ($ (0.5*\x,0) + (-1*0.5, 0)$);
+     }
+  \end{tikzpicture}\\
+  \tikzsetnextfilename{numeric-integral2}%
+  \begin{tikzpicture}[x=10mm, y=5mm]
+    \draw[step=1cm,grid] (-0.2,-0.2) grid (4,4);
+    \clip(-0.2,-0.2) rectangle (4,4);
+    \draw[->] (0,-0.2) -- (0, 4);
+    \draw[->] (-0.2,0) -- (4,0);
+
+     \draw[domain=-4:4,smooth,variable=\x,blue]
+       plot ({\x},{0.25*\x*\x});
+     \foreach \x in {1,...,20}{%
+       \fill[draw=black,blue,opacity=0.2]
+        (3*0.05*\x, 9*0.0025*0.25*\x*\x) rectangle ($ (3*0.05*\x,0) + (-1*3*0.05, 0)$);
+     }
+  \end{tikzpicture}
+  \caption{\label{fig:ingegral-numeric}%
+    Demonstration of numerical approximation to an integral.
+    Note that as the rectangles get smaller (as in the figure below),
+    sum of their areas gets closer to the area under the curve.
+  }
+\end{marginfigure}
+Often integrating functions analytically
+(in closed form) is not easy or possible.
+In these cases, integrals can be computed with numeric approximation.
+One way to do this is to sum the areas of rectangles
+as demonstrated in Figure~\ref{fig:ingegral-numeric}.
+As we decrease the width of the rectangles,
+or equivalently, increase the number of rectangles in a fixed range,
+the approximation will be more precise.
+This also hints at interpreting integrals as a infinite sum.
+This interpretation will often be more useful
+for the examples we will see (often in probability theory).
+
+\section*{Summary}
+
+In this lecture,
+we reviewed some concepts from linear algebra and calculus.
+The aim was to
+provide a refresher for those who studied these topics,
+familiarize the reader with the notation that will be used,
+and also give a feeling of the what mathematical concepts will be useful
+for studying statistical natural language processing.
+This overview here is necessarily informal and incomplete.
+Below, a number of potential sources are listed if you need a better introduction to these concepts.
+
+For linear algebra,
+\textcite{cherney2013} and \textcite{beezer2016} are
+two textbooks that are freely available online.
+A classic reference textbook for linear algebra is \textcite{strang2009}.
+For a more practical/geometric approach,
+see \textcite{farin2014} or \textcite{shifrin2011}.
+
+For the concepts we reviewed briefly from calculus,
+any textbook introduction to calculus should be sufficient.
+A well-known (also available online) textbook is \textcite{strang1991}.
+For more alternatives on open textbooks on mathematics see
+\url{http://www.openculture.com/free-math-textbooks}.

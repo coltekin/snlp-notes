@@ -1,0 +1,99 @@
+\chapter{\label{chap:hmm}Sequence learning}
+
+The machine learning methods we discusses so far are
+built on the assumption that the training instances
+are \emph{independent and identically distributed} (i.i.d).
+When this assumption is reasonable,
+each prediction the machine learning system can be made
+independently of other predictions.
+For example, whether current email is spam or not
+does not depend on our prediction on the previous email.
+In most realistic scenarios,
+it is fairly reasonable to make each decision in isolation.
+
+\begin{margintable}
+  \centering
+  \caption{\label{tbl:example-pos-tagging}%
+    An example sentence and the assigned POS tags.
+  }
+  \begin{tabular}{lll}
+    \toprule
+    Word & POS tag & Alternative\\
+    \midrule
+    We & \ttag{PRON}   & \\
+    need & \ttag{VERB} & \ttag{NOUN}\\
+    to & \ttag{ADP}    & \\
+    plan & \ttag{VERB} & \ttag{NOUN}\\
+    and & \ttag{CONJ}  & \\
+    book & \ttag{VERB} & \ttag{NOUN}\\
+    \bottomrule
+  \end{tabular}
+\end{margintable}
+In some problems, however, individual predictions
+are not independent of each other.
+For example,
+consider the task of predicting
+the part-of-speech tagging
+where the aim is to assign part-of-speech tags,
+such as \ttag{NOUN} or \ttag{VERB} to words.
+Table~\ref{tbl:example-pos-tagging} shows the POS tags
+we want to assign to the words in the sentence
+\emph{We need to plan and book}.
+The table also lists alternative tags for some of the words.
+The first decision, whether \emph{need} is a noun or a verb,
+clearly depends on the previous word.
+If we had \emph{Our need},
+the more likely option would be \ttag{NOUN}.
+The decision for word \emph{plan} depends clearly on the previous word as well.
+However, more crucially it depends on the POS tag of the word, not only the form of the word.
+The fact that it follows a preposition is a good clue that it is a verb.
+Furthermore, the POS tag of the word that it conjoined with,
+\emph{book}, also provides further clues that it should be a verb.
+
+What is important to realize in the example above is that
+the individual POS tag predictions depend on each other.
+One way to turn this into an i.i.d.\ problem is to 
+consider the whole sequence of labels as a single label.
+However, this would result in a large number of possible labels.%
+\sidenote{In fact, exponentially many.
+  We would have $m^{n}$ possible labels
+  for a sentence of $n$ words with a tagset size of $m$ possible tags.
+}
+Where most of the labels, even perfectly valid ones,
+would not be observed in a realistic data set.
+Furthermore, such an approach would not be able to make use of the 
+regularities within the structure.
+For example, for two unobserved sequences,
+we would not be able to learn that a partial sequence of \ttag{DET NOUN}
+is more likely than \ttag{DET VERB}.
+
+In similar problems 
+we need to consider the dependencies between the parts of the sequence.
+Considering all possible dependencies,
+however, is intractable in most realistic problems.
+As a result, most solutions rely on restricting the dependencies we consider
+to a subset of the all dependencies.
+A common assumption that is useful in many sequence learning applications
+is to consider dependencies between the labels in a fixed distance.
+A well-known traditional model that is used often with sequence learning
+is hidden Markov models which will be main focus in the first part of this lecture.
+
+Problems that require learning sequences are prevalent in NLP.
+Sequence learning is an instance of \emph{structured learning},
+where the prediction is not a simple atomic label,
+but a complex structure with interdependencies between its parts.
+The structure does not have to be a sequence,
+for example, in parsing, the target we want to predict is
+better expressed by a hierarchical structure rather than a sequence.
+In this lecture we will focus on learning sequences,
+and return to the discussion of more-general structure learning
+while introducing parsing.
+
+\section{Hidden Markov models}
+
+\emph{Hidden Markov models} are one of the ways to make the learning over 
+sequences easier.
+
+\section*{Where to go from here}
+
+\textcite{wasserman2004}

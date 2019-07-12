@@ -1,0 +1,1659 @@
+\chapter{\label{chap:classification}Classification}
+
+As we briefly discussed before,
+a supervised machine learning method is call classification
+if the outcome variable is a categorical variable
+Figure~\ref{fig:classification-problem} depicts
+a binary classification problem in a two-dimensional input space.
+Given the input variables, or features,
+the task is to predict the class label
+(represented as $+$ and $-$ in Figure~\ref{fig:classification-problem}).
+Problems that are suited for classification is more widespread
+in NLP in comparison to regression.
+The following are only a few problems
+that can be solved by classification methods.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{classification-example-c2}
+  \begin{tikzpicture}[x=5.5mm, y=4mm]
+    \draw[->,thick] (0,0) -- (0,6.5);
+    \draw[->,thick] (0,0) -- (7.5,0);
+    \node[rotate=90] at (-0.5, 3) {$x_{2}$};
+    \node at (4, -0.5) {$x_{1}$};
+    \node[green] at (3.4,3.4) {?};
+    \foreach \pos in {(1, 1), (2, 1), (3,1.5), (1.2, 2.4)}
+      \node[very thick, red] at \pos {\bf +};
+    \foreach \pos in {(6, 5.7), (5, 3.3), (5.2,5.8), (6.2, 4.7)}
+      \node[very thick, blue] at \pos {\bf --};
+  \end{tikzpicture}
+  \caption{\label{fig:classification-problem}
+    A demonstration of classification problem.
+    Each data point is defined by two features ($x_{1}$ and $x_{2}$).
+    The aim is to predict the binary label, $+$ or $-$,
+    of an unknown data point based on a model learned from
+    a labeled training set.}
+\end{marginfigure}
+\begin{itemize}
+  \item Spam detection
+  \item Author identification,
+    author profiling (e.g., prediction gender of the author of a text)
+  \item Sentiment analysis,
+    e.g., given a product review is it positive or negative
+  \item Topic classification, e.g., of news articles
+\end{itemize}
+Note that some these can be cast into regression problems.
+For example,
+sentiment analysis may be done by predicting a scale from negative to positive.
+Some other problems,
+such as POS tagging,
+require classifying
+a sequence of input items rather than predicting each target individually.
+In this lecture,
+we will focus on simple classification problems,
+where the aim is to assign instances we want to classify
+to two or more class labels independently.%
+\sidenote{%
+  A broad class of machine learning methods,
+  as the ones we will study in this lecture,
+  assume that the data to be classified is
+  \emph{independent and identically distributed} (i.i.d.).
+}
+Our discussion will mainly focus on binary classification,
+where there are only two outcomes.
+We will go through a few ways to generalize it to multi-class classification.
+
+There are a large number of classification methods
+with their strengths and weaknesses. 
+Covering a large number of them,
+or an in-depth introduction of any of them
+is out of scope of this course, and the lecture.
+We will introduce only three simple but important methods,
+namely, \emph{perceptron}, \emph{logistic regression} and \emph{naive Bayes},
+and focus on issues that arise
+during the use of classification methods in general. 
+We will leave the discussion of artificial neural networks
+to another lecture.
+
+\section{Perceptron}
+
+Perceptron has an important place in the history of machine learning.
+It is a basic binary classification method from 1950's.
+However, it still finds its use in some modern/recent methods,
+it is (historically) related to modern artificial neural networks,
+and understanding the perceptron is also helpful for understanding
+some of the more recent and successful classification methods
+(e.g., support vector machines, SVMs, which we will not cover here).
+Perceptron takes its inspiration from biological neuron.%
+\sidenote{Like modern artificial neural networks, however,
+the relation to the biological neuron is rather weak.
+It is a practical machine learning method,
+rather than a model of biological systems.
+}
+It receives a number of numeric inputs,
+multiplies each input with an associated weight,
+and outputs of $+1$ (`fires') if the weighted sum is greater than $0$,
+$-1$ otherwise.
+A schematic description of perceptron is presented
+in Figure~\ref{fig:perceptron}.
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-drawing}
+
+      \begin{tikzpicture}[on grid, node distance=12mm,thick,blue!40!black,>=stealth]
+        \tikzstyle{neuron}=[draw,circle,minimum size=8mm,inner sep=0pt];
+        \tikzstyle{hidden}=[neuron,fill=black!25,color=black!25];
+        \node[neuron,draw] (perc) at (0,0) {\tikzset{external/export next=false}\tikz{\draw[very thick] (0,0) -- (2mm,0) -- (2mm,6mm) -- (4mm, 6mm);}};
+        \node[left=25mm of perc] (x2)  {$x_{2}$};
+        \node[above of=x2] (x1)  {$x_{1}$};
+        \node[below of=x2] (dots)  {\vdots};
+        \node[below of=dots] (xn)  {$x_{k}$};
+        \draw[->] (x1) -- (perc) node[midway, sloped, below] {$w_{1}$};;
+        \draw[->] (x2) -- (perc) node[midway, sloped, below] {$w_{2}$};;
+        \draw[->] (xn) -- (perc) node[midway, sloped, below] {$w_{k}$};;
+        \node[right=20mm of perc] (y) {$y$};
+        \draw[->] (perc) -- (y);
+        \node[above of=x1] (x0) {$x_{0} = 1$};
+        \draw[->] (x0) -- (perc) node[midway, sloped, below] {$w_{0}$};
+      \end{tikzpicture}
+  \caption{\label{fig:perceptron}
+    A schematic description of perceptron.
+  }
+\end{marginfigure}
+Formally, the output of the perceptron ($y$) is a step
+function whose input is a weight sum of its inputs \vect{x}.
+\begin{equation*}
+  y = f\left(\sum_{i}^{k} w_{i} x_{i}\right)
+\end{equation*}
+where,
+\begin{equation*}
+  f(x) = 
+  \begin{cases}
+    +1 & \text{if}\quad \sum_{i}^{k} w_{i} x_{i} > 0 \\
+    -1 & \text{otherwise} \\
+  \end{cases} .
+\end{equation*}
+The weights $w_{i}\ldots{}w_{k}$ are the parameters of the model that
+we want to estimate, or learn.
+Like in regression, an intercept term is often included,
+denoted as $w_{0}$ in Figure~\ref{fig:perceptron} and the equation above,
+in which case we also assume a constant input of $x_{0} = 1$.
+Noticing that the weighted sum above
+is the dot product of the parameter and the input vectors
+helps us interpret the perceptron learning algorithm geometrically.
+
+So far, we defined how perceptron predicts the category.
+In simple words,
+if the sum of the weighted inputs is negative,
+the prediction is the negative class,
+if the sum is positive, the prediction is the positive class.%
+\sidenote{The class labels here, and in all binary classification methods,
+are arbitrary. The choice does not change the outcome.
+The assignment sometimes is `meaningful' for humans
+(e.g., in sentiment analysis it makes sense
+to assign positive values to the positive sentiments).
+In many problems, however, there are also no reasons
+to choose one of the classes as positive (e.g., in gender prediction).}
+The interesting thing about perceptron,
+like in any machine learning method,
+is that the parameters (the weight vector $w$) can be learn from the data,
+and there is a well-known algorithm for it.
+
+\emph{The perceptron algorithm} learns only from its mistakes,
+correct predictions do not contribute to the learning.
+Similar to the gradient descent algorithm we discussed earlier,
+the perceptron algorithm is an iterative algorithm.
+The perceptron error is defined as
+\begin{equation}\label{eq:perceptron-error}
+  E(\vect{w}) =
+    \sum_{i \in \text{misclassified}} - y_{i} \vect{w} \vect{x}_{i} .
+\end{equation}
+The geometric interpretation of this formula is straightforward.
+Note that the last part in the sum is a dot product.
+For normalized (unit) vectors,
+it will tend to \num{1} if the direction of
+the weight vector and the input vector are similar,
+and it will tend to \num{-1} if they point to opposite directions.%
+Also noting that $y_{i}$ is either \num{1} or \num{-1},
+the formula tells us that we are looking for a weight vector
+that is `prototypical' for the positive examples.
+The error will be low if the input instance is similar to the weight vector,
+and the gold-standard label is positive,
+or input and the weight vectors are dissimilar
+and the gold-standard label is negative.
+Hence, the error promotes a solution where the weight vector is maximally
+similar to the positive examples,
+and minimally similar to the negative examples.
+
+The perceptron error defined in Equation~\ref{eq:perceptron-error} is linear
+in \vect{w},
+which means that it is not convex,
+and there is no finite or unique solution that minimizes the error.
+Nevertheless, we can employ a search procedure
+similar to gradient descent algorithm.
+
+Before discussing how we actually do this,
+it is useful to introduce a useful alternation.
+The error function as defined Equation~\ref{eq:perceptron-error}
+calculates the error for all misclassified examples.
+In practice, often an \emph{online} version of the algorithm is used,
+where at each iteration a single misclassified example is picked,
+and the weight values are update before picking another misclassified example.
+This procedure is often more efficient and easy to grasp for most people,
+and we will continue our discussion
+based on the online version of the algorithm.
+
+We start the search procedure with  a random weight assignment,
+and update the weights based on the gradient vector, such that
+\begin{equation*}
+  \begin{aligned}
+    w &\leftarrow w - \eta \nabla{}E(w)\\
+    w &\leftarrow w + \eta \vect{x}_{i} y_{i} \\
+  \end{aligned} 
+\end{equation*}
+where $\eta$ is the learning rate as in gradient descent.
+Intuitively, if the gold-standard label of $\vect{x}_{i}$ is positive,
+we add $\vect{x}_{i}$ to the weight vector
+(after scaling with the learning rate),
+making it more similar to the misclassified positive example.
+If the gold-standard label, $y_{i}$ is negative,
+then we subtract the $\vect{x}_{i}$ from the misclassified example,
+making them less similar.
+\todo{scale matters}
+
+\begin{figure*}
+  \centering
+\newcommand{\perceptronbasefigure}{%
+%        \draw[gray,step=0.25cm] (-1,-1) grid (1,1);
+        \clip (-1,-1) rectangle (1,1);
+        \draw[<->,thick] (-1,0) -- (1,0);
+        \draw[<->,thick] (0,-1) -- (0,1);
+
+        \foreach \x/\y/\i in {-0.75/0.75/1, -0.75/0.5/2, -0.20/-0.70/3}{%
+          \node[font=\scriptsize,circle, inner sep=0cm, outer sep=0pt,%
+								 fill=blue!50, minimum size=1.5mm]
+            (n-\i) at (\x, \y) {$\mathbf{-}$};
+        }
+        \foreach \x/\y/\i in {0.75/0.75/1, 0.25/0.25/2,%
+                              0.25/0.75/3, 0.3/-0.4/4}{%
+          \node[font=\scriptsize,circle, inner sep=0cm, outer sep=0pt,%
+								 fill=orange!50, minimum size=1.5mm]
+            (p-\i) at (\x, \y) {$\mathbf{+}$};
+        }
+        \coordinate (o) at (0, 0);
+}
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-algorighm-1}
+      \begin{tikzpicture}[x=24mm,y=24mm,]
+        \perceptronbasefigure
+        \coordinate (w) at (-0.125, -0.5);
+        \draw[fill=gray,fill opacity=0.1] (-2, -2) rectangle (2,2);
+        \node[anchor=south west] at (-1,-1) {(0)};
+      \end{tikzpicture}
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-algorighm-2}
+      \begin{tikzpicture}[x=24mm,y=24mm,]
+        \perceptronbasefigure
+        \coordinate (w) at (-0.125, -0.5);
+        \draw[->] (o) -- (w) node[anchor=east] {\vect{w}};
+        \draw ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$);
+        \draw[fill=blue,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!10cm!180:(w)$) -- ++($(o)!20cm!-90:(w)$) -- cycle;
+        \draw[fill=orange,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!20cm!0:(w)$) -- ++($(o)!20cm!90:(w)$) -- cycle;
+        \node[anchor=south west] at (-1,-1) {(1)};
+      \end{tikzpicture}
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-algorighm-3}
+      \begin{tikzpicture}[x=24mm,y=24mm,]
+        \perceptronbasefigure
+        \coordinate (w) at (-0.125, -0.5);
+        \coordinate (p) at (p-2);
+        \draw[->]     (o) --  (w) node[anchor=east] {\vect{w}};
+        \draw ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$);
+        \draw[->,red] (o) -- (p);
+        \draw[->,dashed,red] (w) -- ($(w) + (p)$);
+        \draw[fill=blue,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!10cm!180:(w)$) -- ++($(o)!20cm!-90:(w)$) -- cycle;
+        \draw[fill=orange,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!20cm!0:(w)$) -- ++($(o)!20cm!90:(w)$) -- cycle;
+        \node[anchor=south west] at (-1,-1) {(2)};
+      \end{tikzpicture}\\[1mm]
+  %    \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-algorighm-4}
+      \begin{tikzpicture}[x=24mm,y=24mm,]
+        \perceptronbasefigure
+        \coordinate (w) at ($(-0.125, -0.5) + (p-2)$);
+        \coordinate (p) at (n-3);
+        \draw[->] (o) -- (w) node[anchor=west] {\vect{w}};
+        \draw[->,red] (o) -- (p);
+        \draw ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$);
+        \draw[->,dashed,red] (w) -- ($(w) - (p)$);
+        \draw[fill=blue,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!10cm!180:(w)$) -- ++($(o)!20cm!-90:(w)$) -- cycle;
+        \draw[fill=orange,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!20cm!0:(w)$) -- ++($(o)!20cm!90:(w)$) -- cycle;
+        \node[anchor=south west] at (-1,-1) {(3)};
+      \end{tikzpicture}
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-algorighm-5}
+      \begin{tikzpicture}[x=24mm,y=24mm,]
+        \perceptronbasefigure
+        \coordinate (w) at ($(-0.125, -0.5) + (p-2) - (n-3)$);
+        \coordinate (p) at (p-4);
+        \draw[->] (o) -- (w) node[anchor=south] {\vect{w}};
+        \draw ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$);
+        \draw[->,red] (o) -- (p);
+        \draw[->,dashed,red] (w) -- ($(w) + (p)$);
+        \draw[fill=blue,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!10cm!180:(w)$) -- ++($(o)!20cm!-90:(w)$) -- cycle;
+        \draw[fill=orange,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!20cm!0:(w)$) -- ++($(o)!20cm!90:(w)$) -- cycle;
+        \node[anchor=south west] at (-1,-1) {(4)};
+      \end{tikzpicture}
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{perceptron-algorighm-6}
+      \begin{tikzpicture}[x=24mm,y=24mm,]
+        \perceptronbasefigure
+        \coordinate (w) at ($(-0.125, -0.5) + (p-2) - (n-3) + (p-4)$);
+        \draw[->] (o) -- (w) node[anchor=south] {\vect{w}};
+        \draw ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$);
+        \draw[fill=blue,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!10cm!180:(w)$) -- ++($(o)!20cm!-90:(w)$) -- cycle;
+        \draw[fill=orange,opacity=0.1] ($(o)!10cm!-90:(w)$) -- ($(o)!10cm!90:(w)$)
+          -- ++($(o)!20cm!0:(w)$) -- ++($(o)!20cm!90:(w)$) -- cycle;
+        \node[anchor=south west] at (-1,-1) {(5)};
+      \end{tikzpicture}
+      \caption{
+        A step-by-step demonstration of perceptron algorithm.
+      }\label{fig:perceptron-alg}%
+\end{figure*}
+Figure~\ref{fig:perceptron-alg} presents a step-by-step demonstration
+of the perceptron algorithm.
+Panel 0 shows the training set only.
+In panel 1, the weight vector is initialized randomly.
+The prediction line is perpendicular to the wight vector,
+as the points where $\vect{w}\vect{x} = 0$ is satisfied when 
+\vect{x} and \vect{w} are perpendicular.
+Hence, any input vector perpendicular to the weight vector
+lies on the decision boundary.
+The input vectors that lie  on the  same side
+as \vect{w} are predicted as positive class
+(shaded in light orange in the figure),
+and the input vectors on the other side of the boundary 
+(shaded in blue) are predicted as negative class.
+The initial configuration misclassifies three of the positive training instances
+on the upper right quadrant,
+and one of the negative instances (lower left quadrant). 
+In the next step (panel 2),
+we pick one of the misclassified positive examples indicated by the red vector,
+and add it to the weight vector.%
+\sidenote{Since we simple add the vectors,
+  the learning rate this demonstration is \num{1}.
+}
+The resulting weight vector is shown in panel 3,
+along with the misclassified training instance picked for next iteration.
+Since the misclassified instance picked is a negative one,
+we subtract it from the weight matrix, showing the results in panel 4,
+where we again pick another (positive) training instance that is misclassified.
+After adding it to the weight vector,
+the decision boundary shifts in a way that separates all the training instances correctly,
+which concludes the search process.
+
+The perceptron algorithm is guaranteed to converge
+if the training instances are linearly separable.
+That is, the negative and positive instances
+can be separated by a hyperplane
+(a line in two-dimensional space in the example).
+If the training instances are not linearly separable,
+the algorithm does not terminate.
+In theory, this is a major drawback,
+as we also do not know in advance whether the training set is 
+linearly separable or not.
+However, in practice,
+the algorithm can be used with a stopping condition,
+such as a maximum number of iterations allowed,
+and/or stopping after the classification accuracy stops improving.
+
+Another, somewhat subtle issue, with the perceptron algorithm is that
+when it finds a solution, it will stop regardless of the decision boundary,
+even though there may be a better solution
+that leaves a larger margin between the positive and negative classes.
+This issue is tackled by \emph{large margin classifiers},
+such as \emph{support vector machines} (SVMs) that we will cover in this class.%
+\sidenote{Now that you know the perceptron,
+you will understand them with less effort.}
+
+The perceptron is a binary classifier.
+To use it in multi-class classification problems,
+we need to use one of the strategies of combing multiple binary classifiers
+for obtaining multi-class classifiers.
+We will discuss the general multi-class strategies soon in this lecture.
+
+\subsection{A bit of history}
+
+The perceptron was developed in late 1950’s and early 1960’s by 
+\textcite{rosenblatt1958},
+caused excitement in many (then young) areas including
+computer science, artificial intelligence, cognitive science.
+The excitement (and funding) died away in early 1970’s after the criticism by
+\textcite{minsky1969} where main issue was the fact that
+the perceptron algorithm cannot handle problems that are not linearly separable.
+
+Another interesting note about the perceptron is
+its similarity with the other classifiers.
+Although it is technically more similar to the SVMs,
+historically it is related to the modern artificial neural networks (ANNs).
+
+\section{Logistic regression}
+
+A  \emph{logistic regression} model estimates
+the conditional probability of the outcome variable given the predictor(s),
+$P(y\given{}x)$.
+It is one of the basic methods in statistics as used in experimental sciences,
+and also closely related to the more complex models,
+including artificial neural networks.
+
+Despite its name, logistic regression is is a classification method.
+The name is related to the fact that it is an instance
+of \emph{generalized linear models} (GLMs),
+which are a generalization over linear regression.
+In GLMs the outcome variable is transformed using a non-linear function,%
+\sidenote{Which is called a \emph{link function} in the GLM literature.}
+and error distribution may be not-Gaussian.
+Below, we will start from ordinary least-squares regression
+and develop our GLM to a logistic regression through an example.
+
+Since we want to predict the probability of the positive class,
+we code positive class as \num{1} and negative class as \num{0}.%
+\sidenote{In contrast to perceptron where we use \num{1} and \num{-1}.}
+Hence our training labels are either \num{0} or \num{1}.
+During prediction we want a probability value in range $[0, 1]$.
+Typically, if the probability is larger than \num{0.5},
+then we predict the positive class,
+otherwise the negative class.
+Note that we expect the model to predict the probability of success
+in a Bernoulli trial conditioned on the predictor(s).
+The model's outcome $\hat{y}$ is simply the probability parameter
+of a Bernoulli (or binomial) distribution.
+
+\pgfplotstableread{data/logistic-regression-data.txt}\lrdata
+\begin{marginfigure}
+  \centering
+%    \tikzset{external/export next=false}
+  \tikzsetnextfilename{logistic-regression-data}
+    \begin{tikzpicture}
+      \begin{axis}[
+          x=8mm, y=20mm,
+          xmin=-2.5, xmax=2.5,
+          ymin=-0.2, ymax=1.2,
+          axis lines=left,
+          ytick={0, 0.5, 1},
+          yticklabel style={font=\scriptsize},
+          xticklabel style={font=\scriptsize},
+          xlabel={$x$},
+          ylabel={$y$},
+          xlabel style={at={(rel axis cs:1,0)}, anchor=north},
+          ylabel style={at={(rel axis cs:0,1)}, anchor=east,rotate=-90},
+          grid style={draw=gray!20},
+          grid=major,
+        ]
+        \addplot[scatter,
+                 mark=*,
+                 mark size=1pt,
+                 only marks,
+                 blue]
+          table[] {\lrdata};
+        \addplot[]
+          table[y={create col/linear regression={y=y}}]
+            {\lrdata};
+        \addplot[thick, domain=-2.5:2.5] {\pgfplotstableregressiona * x + \pgfplotstableregressionb};
+
+        \pgfmathsetmacro{\discr}{(1-2*\pgfplotstableregressionb)/(2*\pgfplotstableregressiona)}
+        \draw[thick,dashed] (\discr, -0.5) -- (\discr, 1.5);
+      \end{axis}
+    \end{tikzpicture}
+    \caption{\label{fig:lr-data}%
+      An example training set for logistic regression with a single predictor.
+      Positive data points are indicated with red,
+      and negative data points are indicated with blue dots.
+      The thick line represents an ordinary least squares regression fit to the data.
+      The dashed line represent the point in the $x$ axis which is used for discriminating
+      the positive and negative instances.
+    }
+\end{marginfigure}
+Figure~\ref{fig:lr-data} presents an example training set for logistic regression
+with a single predictor,
+along with an ordinary least-squares model fit to the data.
+The dashed vertical line indicate the discrimination point.
+Since we have only a single predictor,
+the model will predict positive or negative classes
+for values of $x$ below or above a particular value.
+Since the regression slope is negative in our example,
+the points on the left of the discriminant
+will be assigned to the positive class,
+and the points on the right are predicted as negative.
+
+The first problem with fitting a regression line
+to the data in Figure~\ref{fig:lr-data} is related
+to the fact that we want to predict probabilities.
+However, the regression model's predictions will be 
+above \num{1}, for example, for $x=2$
+and below \num{0} for $x=2$.
+To solve this problem,
+we transform our outcome variable using \emph{logit}
+function.
+The logit function is defined as
+\begin{equation*}
+    \text{logit}(p) = \log\frac{p}{1-p}
+\end{equation*}
+where $p$ is the probability of the positive class,
+for our purposes.
+
+The term inside the logarithm is called the `odds ratio',
+which is simply the probability that an event occurs
+divided by the probability that it does not.
+The odds ratio ranges between \num{0} to $\infty$.
+Taking its logarithm we map our outcome variable to 
+the range $-\infty$ to $\infty$.
+Now we can set our regression model as
+\begin{equation*}
+    \log\frac{p}{1-p} = w_{0} + w_{1} x
+\end{equation*}
+and during prediction  invert the logit function
+to get the conditional probability we are interested in. 
+The inverse of the logit function is the \emph{logistic} function
+(hence the name of the method).
+Figure~\ref{fig:logistic-function} plots the logistic function.
+\begin{marginfigure}
+  \centering
+  \[
+    \text{logistic}(x) = \frac{1}{1 + e^{-x}}
+  \]
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{logistic-function}
+  \begin{tikzpicture}
+    \begin{axis}[
+			x=3.8mm, y=35mm,
+      grid=major,     
+      axis lines=middle,
+      enlargelimits=false,
+      xmin=-6, xmax=6,
+      ytick={0,0.5,1},
+      ymax=1,
+      xlabel={$x$},
+      yticklabel style={font=\scriptsize},
+      xticklabel style={font=\scriptsize},
+    ]
+      \addplot%
+      [
+          blue,%
+          mark=none,
+          samples=100,
+          domain=-6:6,
+      ]
+      (x,{1/(1+exp(-x))});
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:logistic-function}
+    A plot of logistic function.
+  }
+\end{marginfigure}
+The logistic function is a sigmoid-shaped function that
+squashes the real numbers between \num{0} and \num{1}.
+For our (almost logistic) regression example,
+the probability value returned from the model is, then,
+defined as
+\begin{equation}\label{eq:logistic-regression}
+  \hat{y} = \hat{p} = \frac{1}{1 + e^{-w_{0} - w_{1} x}}
+          = \frac{e^{w_{0} + w_{1} x}}{1 + e^{w_{0} + w_{1} x}}
+\end{equation}
+which is the model's prediction of the probability of success.
+
+We simply take the regression model's prediction,
+and plug it into the logistic function to obtain
+the estimated probability of the positive class given a value of $\vect{x}$.
+
+A second problem with using regression to estimate the logistic regression problem
+is the distribution of the errors.
+Note that the distribution of residuals in Figure~\ref{fig:lr-data}
+are far from normal.
+\todo{plot?}
+This means our estimation is not the maximum-likelihood estimation.
+More importantly, however, some errors are not useful for estimation,
+resulting in a non-optimal model.
+For example,
+the model classifies the right-most blue point ($x=2.0$) in Figure~\ref{fig:lr-data}
+is correctly and confidently.
+However, being away from the regression line,
+this data point will have a rather large residual,
+causing model to be penalized for a correct classification.
+
+The solution to this problem is to realize that the
+model defines a binary distribution over the training samples
+(error is also binomially distributed).
+The model's prediction of the probability of a particular
+data point in the training data can be calculated using
+Equation~\ref{eq:logistic-regression}.
+Once we have the predicted probabilities for the training set,
+we can write down the likelihood of the training set according to the model as
+\begin{equation*}
+  \mathcal{L}(\vect{w}) = \prod_{i} \hat{y}_{i}^{y_{i}} (1 - \hat{y}_{i})^{1 - y_{i}}
+\end{equation*}
+where $\hat{y}_{i}$ is the model's prediction, and $y_{i}$ is the gold-standard label
+for $i^\text{th}$ training instance.
+Remember that $\hat{y}_{i}$ and $y_{i}$ are both probability values.
+The equation simply uses the Bernoulli/binomial probability mass function
+we reviewed during our probability refresher.
+The likelihood of the whole data set is the multiplication of individual likelihoods,
+since we assume the training instances are independent of each other.
+
+As in our earlier discussion of maximum likelihood estimation (of regression),
+instead of maximizing the likelihood, we minimize the `minus log likelihood'.%
+\sidenote{%
+  To prevent overfitting,
+  typically the actual objective function minimized
+  includes a regularization term,
+  e.g., L1 or L2 norm of the weight vectors.
+}
+\begin{equation}\label{eq:lr-loglikelihood}
+  \begin{aligned}
+       -\log \mathcal{L}(\vect{w}) &= 
+        -\sum_{i} {y_{i}} \log \hat{y}_{i} + (1 - y_{i}) \log (1 - \hat{y}_{i})\\
+%        \nabla \log \mathcal{L}(\vect{w}) &= \sum_{i} (y_{i} - \frac{1}{1 + e^{-\vect{w}\vect{x}}}) \vect{x_{i}}\\
+  \end{aligned}
+\end{equation}
+Note the resemblance of this formula with the \emph{cross entropy}
+we discussed during our discussion of information theory.
+In fact, by minimizing this function,
+we are minimizing the cross entropy between the gold-standard distribution defined by the training set,
+and the distribution of the model's predictions.
+
+The error function above is differentiable.
+If we replace occurrences of $\hat{y}_{i}$  Equation~\ref{eq:lr-loglikelihood}
+with its form defined in Equation~\ref{eq:logistic-regression},
+we can find/evaluate the gradient of this function
+with respect to the model parameters.
+However, there is no known analytic solution.
+The good news, on the other hand is that it is a convex function.
+As a result, we can use \emph{gradient descent} to find the global minimum of the error.
+
+
+\xdef\lrslope{2.4002}
+\xdef\lrinterc{0.3276}
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{logistic-regression-1p}
+  \begin{tikzpicture}
+    \begin{axis}[
+        x=8mm, y=20mm,
+        xmin=-2.5, xmax=2.5,
+        ymin=-0.2, ymax=1.2,
+        axis lines=left,
+        ytick={0, 0.5, 1},
+        yticklabel style={font=\scriptsize},
+        xticklabel style={font=\scriptsize},
+        xlabel={$x$},
+        ylabel={$y$},
+        xlabel style={at={(rel axis cs:1,0)}, anchor=north},
+        ylabel style={at={(rel axis cs:0,1)}, anchor=east,rotate=-90},
+        grid style={draw=gray!20},
+        grid=major,
+      ]
+      \addplot[scatter,
+               mark=*,
+               mark size=1pt,
+               only marks,
+               blue]
+        table[] {\lrdata};
+        \addplot%
+        [
+            thick,%
+            mark=none,
+            samples=100,
+            domain=-2.5:2.5,
+        ]
+        (x,{1/(1+exp(\lrslope*x+\lrinterc))});
+
+        \pgfmathsetmacro{\discr}{-\lrinterc/\lrslope}
+        \draw[thick,dashed] (\discr, -0.5) -- (\discr, 1.5);
+      \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:lr-example-1p}%
+    The logistic regression fitted to the data presented in Figure~\ref{fig:lr-data}.
+    The resulting logistic curve is the blue curve,
+    which is $\hat{y} = \dfrac{1}{1 + e^{\num{\lrinterc} + \num{\lrslope} x}}$.
+  }
+\end{marginfigure}
+
+Figure~\ref{fig:lr-example-1p} shows the fitted logistic regression curve.
+Although the discriminant (indicated by the dashed vertical line) is similar
+to the one estimated by the ordinary regression (Figure~\ref{fig:lr-data}),
+now the model's predictions are probability values in range $(0,1)$,
+and the predicted probability is now a non-linear function of the predictor(s).
+To find the discriminant,
+we need to set the model expression to $0.5$,
+the equi-probability value for both outcomes.
+Solving this equation is not very difficult.
+However, note that the predicted probability is $\frac{1}{2}$,
+when `regression part of the model' is \num{0},
+i.e., $\num{\lrslope} + \num{\lrinterc} x = 0$.
+This is a linear equation.
+Even though the probability assignments are
+made in a non-linear fashion,
+the discriminant function is linear.
+To show the linearity more clearly,
+Figure~\ref{fig:lr-example-2p} plots a similar example
+with two predictors.
+
+\begin{marginfigure}
+
+  \centering
+  \pgfplotstableread[row sep=\\]{
+    x y class\\
+    1.0 3.0 blue\\
+    0.7 4.0 blue\\
+    2.0 3.2 blue\\
+    2.2 2.4 blue\\
+    3.5 4.2 blue\\
+    2.9 4.0 blue\\
+    3.5 3.0 blue\\
+    2.1 1.0 red\\
+    2.8 1.3 red\\
+    3.0 1.9 red\\
+    3.0 3.4 red\\
+    4.0 2.0 red\\
+    3.2 2.6 red\\
+    4.1 3.2 red\\
+  }\lrtabletwo
+
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{logistic-regression-2p}
+  \begin{tikzpicture}
+    \begin{axis}[x=10mm, y=6mm,
+                 ticklabel style={font=\scriptsize},
+                 xtick={0,...,4},
+                 grid=major,
+                 grid style={draw=gray!10},
+                 xmin=0,
+                 xlabel={$x_{1}$},
+                 ylabel={$x_{2}$},
+                 axis y line=left,
+                 axis x line=bottom,
+                 xlabel style={font=\scriptsize,at={(rel axis cs:1,0)}, anchor=north},
+                 ylabel style={font=\scriptsize,at={(rel axis cs:0,1)}, anchor=east,rotate=-90},
+                 ymin=0,
+                 scatter/classes={
+                   blue={mark=square*,blue,mark size=0.4mm},
+                   red={mark=triangle*,red,mark size=0.5mm}
+                 },
+                 enlargelimits=0.01,
+                 xmin=0, xmax=4.5,
+                 ymin=0, ymax=4.5,
+      ]
+
+      \addplot[scatter,
+               only marks,
+               scatter src=explicit symbolic,
+      ] table[meta=class] {\lrtabletwo};
+      \addplot[dashed,thick,domain=-0.1:5] {(2.53*x - 0.1)/2.58};
+%        node[orange,font=\small,anchor=south west,pos=0.03,sloped] {$0.1 - 2.53x_{1} + 2.58 x_{2} = 0$};
+%      \node[font=\small,anchor=north west] at (2.5,1.2) {$p = \dfrac{1}{e^{\textcolor{orange}{-0.1 - 2.53x_{1} + 2.58 x_{2}}}}$};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:lr-example-2p}%
+    An example data with two two predictors and the 
+    discriminator line estimated by logistic regression.
+    The estimated logistic regression equation is 
+    \[y = \frac{1}{e^{-0.1 - 2.53x_{1} + 2.58 x_{2}}}.\]
+    As a result, the equation for the discriminant line 
+    is defined by \[-0.1 - 2.53x_{1} + 2.58 x_{2} = 0 .\]
+  }
+\end{marginfigure}
+
+\subsection{Multi-class logistic regression}
+
+We discussed logistic regression for the binary case,
+but it has a natural extension to multi-class case,
+which has been rather popular in the NLP literature.
+Recall that logistic regression estimates
+a conditional probability distribution,
+the probability distribution of the outcome variable
+conditioned on the predictors.
+In binary case the distribution estimated is a binomial distribution.
+For the multi-class case we need to estimate a multinomial distribution,
+which leads us to the formulation
+\begin{equation*}
+    P(C_{k}\given{}x) = \frac{e^{\vect{w}_{k}\vect{x}}}%
+                      {\sum_{j} e^{\vect{w}_{j}\vect{x}}}
+\end{equation*}
+where $C_{k}$ is the $k^{th}$ class label.
+This function is called the \emph{softmax} function,
+and it is a generalization of the logistic sigmoid function
+that ensures that total probability (over all class labels) sum to \num{1}.
+Similar to the binary case,
+we estimate the model parameters
+by minimizing the minus log likelihood data the model.%
+\sidenote{What is the number of parameters in terms of number of classes
+  and number of predictors?}
+Similar to the binary case,
+the loss function is differentiable and convex,
+and the parameters can be estimated using a search procedure like gradient descent.
+
+The multinomial version of logistic regression is known as 
+\emph{maximum entropy model} (often shortened \emph{max-ent}),
+or \emph{log-linear} model.
+Furthermore, both binary and multi-class versions are
+important building blocks of (deep) neural networks.
+
+
+\section{Naive Bayes classifier}
+
+Another simple classification method
+that enjoyed quite some success and popularity,
+especially in spam detection,
+after it was introduced is the \emph{naive Bayes classifier}.
+Similar to the logistic regression,
+our aim is to estimate the probability of the outcome variable
+given the predictor(s).
+Hence, the model assigns probabilities to each possible class
+given the set of predictors.
+During prediction,
+the class with the highest probability is selected as the predicted class.
+More formally, we can write this as
+\begin{equation*}
+    \hat{y} = \argmax_{y} P(y\given\vect{x})
+\end{equation*}
+which means we choose the $y$ value
+that maximizes the $P(y\given\vect{x})$ among all possible values of $y$.
+
+Similar to logistic regression,
+we need to estimate the conditional probability distribution P(y\given\vect{x}).
+Unlike logistic regression,
+however, naive Bayes does not estimate this probability distribution directly. 
+Instead we use the Bayes' formula to rewrite it as%
+\sidenote[][-8\baselineskip]{This is why we have `Bayes' in the name.}
+\begin{align*}
+  \hat{\vect{w}} &= \argmax_{w} P(y\given\vect{x}) &\\
+                 &= \argmax_{w} \frac{P(\vect{x}\given{}y) P(y)}{P(x)} &\\
+                 &= \argmax_{w} P(\vect{x}\given{}y) P(y) &
+\end{align*}
+Note that simplification on the third step is possible
+since $P(x)$, the (marginal) probability of the data, does not change.
+The model paramters to be estimated, \vect{w}, are the parameters
+of two probability distributions:
+the distribution of output classes $P(y)$,
+and the conditional distribution of input features given the class,
+$P(\vect{x}\given{}y)$.
+Estimating $P(y)$ is easy in most cases,
+all we need to do is count the number of times the each class occur
+in the training data, and divide it to total number of data points.
+The second term, $P(\vect{x}\given{}y)$, is harder to estimate 
+as we typically have a large number of predictors (\vect{x}),
+and we cannot expect to estimate the joint probability of all
+of the predictors by counting the number of occurrences
+of all combinations of feature values.
+For any realistic problem, many of the combinations will not be observed,
+even in very large data sets.%
+\sidenote{Even though predictors would be categorical
+in the typical use of naive Bayes,
+some of the predictors may even be continuous,
+making it almost impossible to rely on counting and dividing approach.}
+The solution to this problem is making
+a \emph{conditional independence} assumption.
+We assume that given the class labels,
+the predictors are independent of each other.
+As a result, their joint probability is
+multiplication of probabilities of individual predictors given the class.
+The conditional assumption is often wrong.%
+\sidenote{The reason for the `naive' in the name.}
+However, it was found that this works reasonably well
+for a large number of problems.
+
+
+\begin{marginfigure}[-8\baselineskip]
+  \begin{tcolorbox}[fontupper=\tt]
+    medication\\
+    free\\
+    technology\\
+    advanced\\
+    book\\
+    now\\
+    lose\\
+    weight\\
+    good\\
+  \end{tcolorbox}
+  \caption{\label{fig:nb-example-features}%
+    The list of features for the naive Bayes example.
+  }
+\end{marginfigure}
+To make the above discussion more concrete,
+we will go through a simple toy example.
+We assume that we are building a spam detection application.
+With classes of `spam' and `not spam',
+we have a binary classification problem at hand.
+And, our predictors are the set of words
+presented in Figure~\ref{fig:nb-example-features}.
+We will take the occurrence as also a binary variable,
+a word occurs in a document or not.
+We will train a spam detector on the
+training set given in Figure~\ref{fig:nb-example-trainset}.
+\begin{marginfigure}
+  \begin{tcolorbox}[fontupper=\scriptsize,colback=blue!20]
+    good book (NS)\\
+    now book free (S)\\
+    medication lose weight (S)\\
+    technology advanced book (NS)\\
+    now advanced technology (S)
+  \end{tcolorbox}
+  \caption{\label{fig:nb-example-trainset}%
+    Example training data for spam detection.
+    Each line represents an email,
+    followed by its label, spam (S) or not spam (NS)
+    in parentheses.
+  }
+\end{marginfigure}
+
+To estimate the prior probabilities of the classes,
+we count how many times each class occur in the training set,
+and divide it into the total number of training examples:
+$P(S) = 3/5$ and $P(NS) = 2/5$.
+For likelihood, we need to calculate probability of observing
+a particular word in training instances belonging to each class 
+(spam and non spam documents).
+We can conveniently represent this in a table
+as in Table~\ref{tbl:nb-example-condprob}.
+\begin{margintable}
+  \caption{\label{tbl:nb-example-condprob}
+    Conditional probabilities of words given the class labels
+    for the example data in Figure~\ref{fig:nb-example-trainset}.
+  }
+  \centering
+  ~\\[1mm]
+%  \begin{tabular}{@{\hspace{1pt}}l@{\hspace{3pt}}r@{\hspace{3pt}}r@{\hspace{1pt}}}
+  \begin{tabular}{lrr}
+    \toprule
+    $w$ & $P(w\given{}S)$ & $P(w\given{}NS)$ \\
+    \midrule
+    medication  & 1/5 & 0  \\
+    free        & 1/5 & 0  \\
+    technology  & 1/5 & 1/5\\
+    advanced    & 1/5 & 1/5\\
+    book        & 1/5 & 2/5\\
+    now         & 1/5 & 0  \\
+    lose        & 1/5 & 0  \\
+    weight      & 1/5 & 0  \\
+    good        & 0   & 1/5\\
+    \bottomrule
+  \end{tabular}
+\end{margintable}
+Although there are some variations,
+training naive Bayes generally amounts to counting.
+Once we have estimated the relevant probabilities (parameters)
+as above,
+we can find the probability of an email being spam
+  by multiplying $P(S)$ with $P(w\given{}S)$ for each word in the document.
+For example for a test document that contains words \emph{book} \emph{technology},
+we calculate both
+\begin{align*}
+  P(S)P(\text{book}\given{}S)P(\text{technology}\given{}S) &= \frac{3}{5} \times \frac{1}{5} \times \frac{1}{5}\\
+  P(NS)P(\text{book}\given{}NS)P(\text{technology}\given{}NS) &= \frac{2}{5} \times \frac{2}{5} \times \frac{1}{5} .\\
+\end{align*}
+Note that these are not probabilities.
+We need to divide both quantities to probability of observing this email,
+but since it is the same email,
+it is the same for both classes.
+As a result we can pick the largest value,
+in this case indicating that the email is not spam.
+
+An interesting detail is what happens if the test document contains,
+for example, \emph{good}.
+According to Table~\ref{tbl:nb-example-condprob}, $P(\text{good}\given{}S) = 0$.
+This means any document that includes word \emph{good} cannot be spam.
+To solve this problem, a \emph{smoothed} estimate of the conditional probabilities 
+where a part of the probability mass is reserved for unseen events.
+We will discuss the smoothing along with n-gram language models.
+
+Naive Bayes is a simple algorithm,
+and admittedly, it does not generally perform better than other
+(more recent) classification mechanisms.
+However, understanding naive Bayes may help understand  
+other more complex methods used in the literature.
+
+\section{A classification of classification models}
+
+The three classification methods we reviewed each represent
+a different sort of model in a broad categorisation of machine learning models.
+In case of perceptron, and similar models such as SVMs,
+the aim is to separate the classes from each other
+without making use of the probability theory.%
+\sidenote{Although probability theory is not used for making predictions,
+  some of the methods in this category make use of probability theory
+  in the estimation, e.g., for minimizing the expected error on the training set.
+}
+These type of models are often called \emph{discriminative} models in the literature.
+The aim of these models are to find a boundary
+that discriminate the data points that belong to different classes.
+The other two models we discussed are probabilistic.
+However, logistic regression predicts
+the \emph{conditional probability} of classes given the predictors,
+while the naive Bayes
+(under the hood) predicts the \emph{joint probability} of
+the classes and the predictors.
+Among these models, logistic regression is again
+a discriminative model.
+Although it assigns probabilities to each class
+for each data point,
+it forms a (soft) boundary for discriminating between classes.
+Naive Bayes, and similar models, are \emph{generative}. 
+They can assign probabilities to the data points,
+and since they model the complete data,
+one can generate data based on the model by
+sampling from the joint distribution.
+
+In general, discriminative/conditional models tend to perform better
+in classification tasks mainly because they do model the problem directly,
+without putting additional attention to modeling the data.
+However, there are also cases where generative models are preferred.
+We will see some applications where the  difference between a generative
+and discriminative models play a role.
+
+\section{Multi-class classification}
+
+Most of our discussion above was focused on binary classification.
+Some classification methods,
+such as logistic regression and naive Bayes discussed above,
+has a natural way to handle multi-class cases. 
+Some models, on the other hand, are designed to work with the binary case.
+There are two well-known strategies that turn any binary
+classifier to multi-class classifier.
+The main idea is training multiple binary classifiers,
+and making the final class assignment based on
+the predictions from all of the classifiers.
+
+The first strategies we will discuss is called \emph{one vs. all},
+or \emph{one vs. rest}.
+To turn a binary classifier into a multi-class classifier
+that predicts one of $k$ classes, we train $k$ classifiers.
+Each time, we pick one of the classes as the positive class,
+and label the rest as the negative class.
+Figure~\ref{fig:one-vs-rest} demonstrates the one-vs-rest strategy.
+The lines in the figure are the discriminators of individual classifiers,
+that are trained to discriminate one of the classes from the others.
+\begin{marginfigure}[-5\baselineskip]
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{one-vs-rest}
+  \centering
+  \begin{tikzpicture}[x=9mm,y=9mm]
+    \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->,thick] (0,0) -- (0,5) node[anchor=south] {$x_{2}$};
+    \foreach \x/\y in {1/2.5, 1/3.5, 2/2, 2/3}
+    {
+      \node[draw,%
+           circle,%
+           inner sep=0cm,%
+           orange%
+         ] at (\x, \y) {$+$};
+    }
+    \foreach \x/\y in {3/1.5, 4/1, 4/2}
+    {
+      \node[draw,%
+           circle,%
+           inner sep=0cm,%
+           blue%
+         ] at (\x, \y) {$-$};
+    }
+    \foreach \x/\y in {3/3.5, 3.5/4, 4/3.5, 4.5/4.5}
+    {
+      \node[draw,%
+           circle,%
+           inner sep=0cm,%
+           red%
+         ] at (\x, \y) {$\times{}$};
+    }
+    \draw[thick,orange] (2.5, 0) -- (2.5, 5);
+    \draw[thick,blue] (0.5, 0) -- (5, 3.5);
+    \draw[thick,red] (0, 5) -- (5, 2);
+
+    \path[fill=red!30, opacity=0.2] 
+      (2.5, 1.555556) -- (3.91129, 2.653226) -- (2.5, 3.5) -- cycle;
+    \path[fill=gray!30, opacity=0.2] 
+      (2.5, 1.555556) -- (2.5, 0) -- (0.5, 0) -- cycle;
+    \path[fill=gray!30, opacity=0.2] 
+      (3.91129, 2.653226) -- (5, 2) -- (5, 3.5) --cycle;
+    \path[fill=gray!30, opacity=0.2] 
+      (2.5, 3.5) -- (0, 5) -- (2.5, 5) -- cycle;
+
+%        \path<6->[fill=orange!40, opacity=0.3] 
+%          (0,0) -- (1.5,0) -- (3, 2.5) -- (1.5, 5) -- (0, 5) -- cycle;
+%        \path<6->[fill=red!40, opacity=0.3] 
+%          (3, 2.5) -- (5, 2.75) -- (5, 5) -- (1.5, 5) -- cycle;
+%        \path<6->[fill=blue!40, opacity=0.3] 
+%          (3, 2.5) -- (5, 2.75) -- (5, 0) -- (1.5, 0) -- cycle;
+  \end{tikzpicture}
+  \caption{\label{fig:one-vs-rest}%
+    A demonstration of one-vs-rest multi-class strategy.
+  }
+\end{marginfigure}
+Note, however, that some regions of the input space will not be claimed
+by any of the classes, such as the shaded are in the middle.
+Furthermore, some regions will be claimed by more than one class.
+In these cases, if the base classifier returns a probability or confidence value,
+we pick the class with the highest score (or lowest negative score).
+Figure~\ref{fig:one-vs-rest2} presents new multi-class decision boundaries set
+based on the distances from the decision boundaries of the base classifiers.
+\begin{marginfigure}[-5\baselineskip]
+  \centering
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{one-vs-rest2}
+  \begin{tikzpicture}[x=9mm,y=9mm]
+    \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->,thick] (0,0) -- (0,5) node[anchor=south] {$x_{2}$};
+    \foreach \x/\y in {1/2.5, 1/3.5, 2/2, 2/3}
+    {
+      \node[draw,%
+           circle,%
+           inner sep=0cm,%
+           orange%
+         ] at (\x, \y) {$+$};
+    }
+    \foreach \x/\y in {3/1.5, 4/1, 4/2}
+    {
+      \node[draw,%
+           circle,%
+           inner sep=0cm,%
+           blue%
+         ] at (\x, \y) {$-$};
+    }
+    \foreach \x/\y in {3/3.5, 3.5/4, 4/3.5, 4.5/4.5}
+    {
+      \node[draw,%
+           circle,%
+           inner sep=0cm,%
+           red%
+         ] at (\x, \y) {$\times{}$};
+    }
+    \draw[thick,orange] (2.5, 0) -- (2.5, 5);
+    \draw[thick,blue] (0.5, 0) -- (5, 3.5);
+    \draw[thick,red] (0, 5) -- (5, 2);
+    \path[fill=orange!40, opacity=0.3] 
+      (0,0) -- (1.5,0) -- (3, 2.5) -- (1.5, 5) -- (0, 5) -- cycle;
+    \path[fill=red!40, opacity=0.3] 
+      (3, 2.5) -- (5, 2.75) -- (5, 5) -- (1.5, 5) -- cycle;
+    \path[fill=blue!40, opacity=0.3] 
+      (3, 2.5) -- (5, 2.75) -- (5, 0) -- (1.5, 0) -- cycle;
+  \end{tikzpicture}
+  \caption{\label{fig:one-vs-rest2}%
+    One-vs-rest classification with ambiguities resolved based on
+    the distance from the decision boundary.
+  }
+\end{marginfigure}
+
+The second strategy for forming multi-class classifiers from
+binary base classifiers is called \emph{one-vs-one}.
+One-vs-one strategy trains $\dfrac{k(k-1)}{2}$ classifiers
+where each classifier learns to separate only two of the classes
+from each other.
+The final prediction is typically made by majority voting.
+The class that is predicted most among all predictions
+is chosen as the predicted class.
+Ties, if they occur, may be broken based on either confidence values,
+or randomly.
+The one-vs-one strategy may be applied even when the base classifiers
+do not have any confidence or probability associated with their predictions.
+However, it also requires more computing power
+because of the number of classifiers it needs to train.
+
+\section{Evaluation metrics for classification}
+
+For regression,
+we use root mean squared error (RMSE)
+or the related measure $R^{2}$ to measure
+how badly or how well the model does.
+The RMSE is simply the average of the error we minimize while fitting the model.
+In case of classification,
+we care about the categorical match between the model's prediction
+and the actual values.
+The error function used by a particular classification algorithm
+is not necessarily a measure of success that is easy to interpret.
+
+A straightforward way to measure the success of a classifier is
+its \emph{accuracy}.
+Accuracy is simply the number of correctly predicted labels
+divided by the total number of predictions.
+
+Although accuracy is straightforward to calculate and interpret,
+it has a major flaw in certain cases.
+We will illustrate this through an example.
+Let us assume that we are evaluating a search engine
+that labels documents in a large document collection
+as `relevant' or `not relevant' to a given query.
+Formulated like this, the search engine is a binary classifier.
+For most queries, there is only a small number of documents that are relevant.
+We assume that for a particular query,
+there are \num{1000} relevant documents
+in a collection of one million documents.
+Now, we will test a `dummy' search engine
+which labels everything as `not relevant'.
+If we calculate its accuracy, in this setting,
+\begin{equation*}
+  \text{accuracy} = \frac{\num{999000}}{\num{1000000}} = 0.999 .
+\end{equation*}
+Clearly, we do not want to credit this useless classifiers
+with a success rate of \SI{99.9}{\percent}.
+In general, accuracy is not a good measure if the class distribution is
+\emph{imbalanced}, if some of the classes are more frequent than the others.
+
+
+\begin{margintable}
+  \caption{\label{tbl:tp-fp}%
+    A comparison of predictions of a binary classifier
+    with gold-standard (true) labels.
+  }
+  \centering
+  ~\\[1mm]
+  \begin{tabular}{lccc}
+    \toprule
+    & & \multicolumn{2}{c}{true label} \\\cmidrule{3-4}
+    & & positive & negative \\\cmidrule{3-4}
+    & positive & $TP$ & $FP$\\\cmidrule{2-4}
+       & negative & $FN$ & $TN$\\
+    \bottomrule
+  \tikzset{external/export next=false}
+    \tikzmark{A} & & & \\
+   \end{tabular}
+  \tikzset{external/export next=false}
+  \tikz[remember picture, overlay]
+    {\node[rotate=90,xshift=10mm] at (A) {predicted};}
+\end{margintable}
+To (partly) avoid this shortcoming of accuracy,
+we use two measures that originate from information retrieval.%
+\sidenote{Where, as evident from our example above,
+  class imbalance is common.}
+The measures are called \emph{precision} and \emph{recall}.
+Before defining and discussing the measures,
+we need to define a few more concepts about
+the errors of a binary classifier makes.
+Table~\ref{tbl:tp-fp} shows possible outcomes of a binary classifier
+compared to the true (gold-standard) labels.
+\emph{True positives} (TP) are the positive instances
+the model predicts correctly,
+\emph{false positives} (FP) are the instances the model
+mistakenly predicts as positive,
+\emph{false negatives} (FN) are the instances the model
+mistakenly classifies as the negative class,
+and finally, \emph{true negatives} (TN) are the instances the model
+correctly predicts as negative class.
+Based on these numbers precision a recall are defined as
+\begin{align*}
+  \text{precision} &= \frac{TP}{TP+FP}\quad\quad \text{recall} = \frac{TP}{TP+FN} .\\
+\end{align*}
+In words, precision is the ratio of correct positive predictions
+to instances predictive a positive by the classifier,
+while recall is the ratio of correctly predicted positive instances
+to all positive instances in the gold-standard data.
+If we return to the `dummy' search engine example,
+since the number of true positives is zero,
+both its precision and recall are both \num{0}.
+\todo[inline]{A figure TP/FP/FN/TN - precision/recall - similar to Wikipedia.}
+
+
+Often, high precision comes with the cost of low recall,
+and high recall leads to low precision.
+Figure~\ref{fig:precision-recall} presents the change in precision and recall
+of a logistic regression classifier,
+where the probability threshold for deciding for the positive class is varied.
+That is, each data point corresponds to a probability threshold.
+In some problems, we may want to trade one for the other.
+For example, for spam detection,
+probably a high-precision classifier is more important,
+since classifying a legitimate email as spam is 
+worse than a few spam appearing in the inbox time to time.
+In tasks where the result is further refined (manually),
+one may prefer to favor high recall not to miss
+many of the positive instances in the data.
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{precision-recall-curve}
+      \begin{tikzpicture}
+        \pgfplotstableread[row sep=\\,trim cells]{
+          p r \\
+          0.8891367 0.09280451\\
+          0.8930258 0.11829549\\
+          0.8670658 0.17077160\\
+          0.8399093 0.22459867\\
+          0.8371751 0.28362813\\
+          0.8143840 0.34844498\\
+          0.7392778 0.49273499\\
+          0.6788342 0.60298455\\
+          0.5390205 0.76827244\\
+          0.4821910 0.89167129\\
+        }{\prtable}%
+        \begin{axis}[%
+            ymin=0,ymax=1,
+            xmin=0,xmax=1,
+            x=35mm,y=35mm,
+            ytick={0,0.5,1},
+            xtick={0,0.5,1},
+            xlabel=recall,
+            ylabel=precision,
+            yticklabel style={font=\scriptsize},
+            xticklabel style={font=\scriptsize},
+            x label style={font=\scriptsize},
+            y label style={font=\scriptsize},
+            mark size=0.8,
+            grid,
+          ]
+          \addplot table[x=r,y=p] {\prtable};
+        \end{axis}
+      \end{tikzpicture}
+  \caption{\label{fig:precision-recall}%
+    Precision-recall curve for a logistic regression classifier.
+    Each data point corresponds to the classifier with
+    the same parameters, but a different probability threshold (instead of \num{0.5}
+    over which the model decides for positive class.
+    The graph does not show the threshold values.
+    However, as expected, higher threshold values lead to high precision, low recall,
+    and lower threshold values lead to low precision high recall.
+    These graphs are also useful for comparing alternative models,
+    based on the \emph{area under curve} (AUC).
+    Other factors being equal, the models with larger AUC is preferable.
+  }
+\end{marginfigure}
+
+Although having both measures often tell more
+about the performance of the classifier,
+sometimes we want a single number summary.
+The standard single-measure summary in this case is called
+\emph{F$_\text{1}$ score} (or F-measure, or F-score) defined as
+\begin{equation*}
+  \text{F$_\text{1}$ score} = \frac{2\times \text{precision} \times \text{recall}}{\text{precision} + \text{recall}}
+\end{equation*}
+F$_\text{1}$ score is the harmonic mean of precision and recall.
+It is similar to the arithmetic mean if precision and recall are similar,
+but the harmonic mean is lower than the arithmetic mean
+if the difference between the precision and recall is high.
+A more general measure, F$_\beta$ score, is defined as
+\begin{equation*}
+  F_\beta =  \frac{(1 + \beta^2)\times\text{precision} \times \text{recall}}{(\beta^{2} \times \text{precision}) + \text{recall}} .
+\end{equation*}
+$\beta$ values lower than \num{1} weighs precision higher than recall,
+and $\beta$ values higher than \num{1} weighs recall higher than precision.
+Sometimes F$_\text{0.5}$ or  F$_\text{2}$ score is reported literature
+when there is a reason to prefer precision or recall.
+However, the uses of $\beta$ other than \num{1} is rather rare,
+and if the subscript is dropped, F-score, refers to F$_\text{1}$ score.
+
+Precision, recall and F-score as defined above works only
+for binary classification problems
+where there is a natural positive class.%
+\sidenote{These measures do not care how the model does on non-positive class(es).
+  Note that true negatives (TN) is not even used in any of the definitions.
+}
+For multi-class classification problems,
+or binary classification problems with no natural positive class,
+averaged versions of precision recall and F-score are used.
+There are two common methods of obtaining average performance scores.
+In \emph{macro averaging},
+we calculate the score for each class separately,
+and divide the result to the number of classes.
+In \emph{micro averaging},
+we average over all data points regardless of their class labels.
+More formally, 
+\begin{align*}
+  \text{precision}_{M} = 
+    \frac{\sum_{i}^{C} \frac{TP_{i}}{TP_{i}+FP_{i}}}{C}
+  &\quad\quad
+  \text{recall}_{M} = 
+    \frac{\sum_{i}^{C} \frac{TP_{i}}{TP_{i}+FN_{i}}}{C}\\[2mm]
+  \text{precision}_{\mu} = 
+    \frac{\sum_{i}^{C} TP_{i}}%
+         {\sum_{i}^{C} TP_{i}+FP_{i}}
+  &\quad\quad
+  \text{recall}_{\mu} = 
+    \frac{\sum_{i}^{C} TP_{i}}%
+         {\sum_{i}^{C} TP_{i}+FN_{i}}\\
+\end{align*}
+where $C$ is the number of classes, the subscripts $i$ range over the classes,
+e.g., $TP_{i}$ is the true positives for class $i$,
+and $M$ indicate macro, and $\mu$ indicate micro averaged scores.
+
+Macro averaging will require model to work equally well on all classes,
+regardless of number of instances that belong to those classes.
+Micro averaging will be higher if the model performs well on
+the classes with a large number of instances.
+In fact, the micro averaged F-score is equal to accuracy.
+
+Although single-number performance indicators are useful
+for assessing the model's performance in general,
+there are a number of other well-known ways to get
+further insights about model's behavior.
+A very useful diagnostic for a model's behavior is the \emph{confusion matrix}.
+The confusion matrix is a square matrix
+whose rows and columns correspond to predicted and true class labels.
+The cells of the matrix count the corresponding predicted and true labels.
+\begin{margintable}
+  \caption{\label{tbl:conf-matrix}%
+    An example confusion matrix.
+  }
+  \centering
+  ~\\[1mm]
+    \begin{tabular}{llS[table-format=2.0,table-align-uncertainty=false]S[table-format=2.0,table-align-uncertainty=false]S[table-format=2.0,table-align-uncertainty=false]}
+      \toprule
+      & & \multicolumn{2}{c}{true class} \\\cmidrule{3-5}
+      &  & {neg.}  & {neu.} & {pos.} \\\cmidrule{3-5}
+      &negative & 10 & 3  & 4 \\
+      &neutral & 2  & 12 & 8 \\
+      &positive & 0  & 7  & 7 \\
+      \bottomrule
+      \tikzmark{A} & & & &\\
+     \end{tabular}
+    \tikzset{external/export next=false}
+     \tikz[remember picture, overlay]{\node[rotate=90,xshift=12mm] at (A) {predicted};}
+\end{margintable}
+Table~\ref{tbl:conf-matrix} show an example (hypothetical) confusion matrix
+for a three-class sentiment classification.
+We can see from the confusion matrix that the model
+does well in predicting the negative class,
+predicting only \num{2} of the true negatives as neutral,
+but having quite a few `false positives' with respect to negative class,
+predicting \num{3} of the neutral and \num{4} of the positive instances as negative.
+On the other hand, is not very good at predicting the positive class,
+confusing it more often with neutral than predicting correctly.
+In general inspecting the confusion matrix may tell more about the model,
+and may also point to potential ways to improve
+the classification models.
+
+We will return to issues of evaluation again.
+For now we close this part with repeating the most important rule of evaluation: 
+since we want our models to useful outside the training data,
+we have to evaluate them on a separate test set.
+
+\section{What we did not cover}
+
+There are many classification methods,
+that we would not be able to cover in this lecture.
+Although it is not possible to cover all of them,
+a few of them deserve at least a short mention here.
+
+\begin{marginfigure}[-3cm]
+    \centering
+%    \tikzset{external/export next=false}
+  \tikzsetnextfilename{decision-tree-boundary}
+    \begin{tikzpicture}[x=7mm,y=7mm,
+        background rectangle/.style={rounded corners, fill=gray!5},
+        show background rectangle
+      ]
+      \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->,thick] (0,0) -- (0,5) node[anchor=east] {$x_{2}$};
+      \foreach \pos in 
+        {(1, 3), (0.7, 4), (2, 3.2), (2.2, 2.4), (3.5, 4.2), (2.9, 4.0)}{
+        \node[draw, font=\scriptsize, circle, inner sep=0cm, orange] at \pos {$+$};
+      }
+      \foreach \pos in 
+        {(2.1, 1), (2.8, 1.3), (3, 1.9),
+         (3, 3.4), (4,2), (3.2, 2.6), (4.1, 3.2)} {%
+        \node[draw, font=\scriptsize, circle, inner sep=0cm, blue] at \pos {$-$};
+      }
+%      \node[draw, font=\scriptsize,circle, inner sep=1pt, purple] at (2.7, 2.8) {$?$};
+      \draw[dashed] (2.5, 0) node[anchor=north] {$a_{1}$} -- (2.5, 5);
+      \draw[dashed]  (0, 2.2) node[anchor=east] {$a_{2}$} -- (5, 2.2);
+      \draw[blue, very thick]
+        (0, 2.2) -- (2.5, 2.2);
+      \draw[blue, very thick]
+        (2.5, 2.2)  -- (2.5, 5);
+    \end{tikzpicture}\\[1mm]
+%    \tikzset{external/export next=false}
+  \tikzsetnextfilename{decision-tree-figure}
+    \begin{tikzpicture}[on grid, node distance=20mm and 12mm,
+        background rectangle/.style={rounded corners, fill=gray!5},
+        show background rectangle
+      ]
+      \node[draw, rectangle, rounded corners] (root) {$x_{2} < a_{2}$};
+      \node[below=of root] (dummy) {};
+      \node[draw,
+            circle,
+            left=of dummy,
+            inner sep=1mm,
+            blue,font=\large] (l1) {$-$};
+      \node[draw,
+            rectangle,
+            right=of dummy,
+            rounded corners] (r1) {$x_{1} < a_{1}$};
+      \node[below=of r1] (dummy2) {};
+      \node[draw,
+            circle,
+            left=of dummy2,
+            inner sep=1mm,
+            orange,
+            font=\large] (l2) {$+$};
+      \node[draw,
+            circle,
+            right=of dummy2,
+            inner sep=1mm,
+            blue,font=\large] (r2) {$-$};
+      \draw (root) -- (l1) node[midway,sloped,above] {yes};
+      \draw (root) -- (r1) node[midway,sloped,above] {no};
+      \draw (r1) -- (r2) node[midway,sloped,above] {no};
+      \draw (r1) -- (l2) node[midway,sloped,above] {yes};
+    \end{tikzpicture}
+    \caption{\label{fig:decision-tree}%
+      A decision tree (bottom) and the decision boundary it defines (top).
+    }
+\end{marginfigure}
+\emph{Decision trees} are interesting especially in cases
+where it is important to interpret the model's decision.
+An example decision tree is depicted in Figure~\ref{fig:decision-tree}.
+Decision trees are non-linear classifiers that are typically used 
+with categorical features
+(but the example in the figure uses continuous features),
+and rely on information theoretic measures for learning.
+A related method \emph{random forests},
+which are a collection of decision trees trained
+on a subset of the data and/or features,
+often perform better.
+
+Another classification method we did not cover is
+\emph{memory based learning},
+also called \emph{instance based learning} or \emph{lazy learning}.
+The idea in memory based learning is
+to store all the training instances without processing.
+Classification decisions are made based on the 
+nearest neighbors of the new instance with unknown label
+during prediction time.
+Figure~\ref{fig:lazy-learning} demonstrates
+the memory based learning.
+In the example given in the figure,
+the we use three nearest neighbors
+to predict the class of a test instance indicated with question mark.
+In this case, 
+the negative class wins assuming we are using a simple majority voting decision. 
+\begin{marginfigure}
+  \centering
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{mbl-example}
+      \begin{tikzpicture}[x=7mm,y=7mm]
+        \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+        \draw[->,thick] (0,0) -- (0,5) node[anchor=east] {$x_{2}$};
+        \edef\noden{0}
+        \foreach \x/\y in 
+          {1/3, 0.7/4, 2/3.2, 2.2/2.4, 3.5/4.2, 2.9/4.0}
+          {
+          \node[font=\scriptsize,draw, circle, inner sep=0cm, orange] (n\noden) at (\x,\y) {$+$};
+%          \node[draw, circle, inner sep=0cm, orange] (n\noden) at (\x,\y) {\noden};
+          \pgfmathparse{int(\noden+1)};
+          \xdef\noden{\pgfmathresult};
+        }
+        \foreach \x/\y in 
+        {2.1/1, 2.8/1.3, 3/1.9, 3/3.4, 4/2, 3.2/2.6, 4.1/3.2}
+        {%
+          \node[font=\scriptsize,draw, circle, inner sep=0cm, blue] (n\noden) at (\x,\y) {$-$};
+%          \node[draw, circle, inner sep=0cm, orange] (n\noden) at (\x,\y) {\noden};
+          \pgfmathparse{int(\noden+1)};
+          \xdef\noden{\pgfmathresult};
+        }
+        \node[font=\scriptsize,draw, circle, inner sep=1pt, purple] (unk) at (2.7, 2.8) {$?$};
+        \draw[dashed] (unk) -- ({n3});
+        \draw[dashed] (unk) -- ({n9});
+        \draw[dashed] (unk) -- ({n11});
+      \end{tikzpicture}
+    \caption{\label{fig:lazy-learning}%
+      A demonstration of the memory-based learning.
+    }
+\end{marginfigure}
+
+Yet another interesting interesting method we already mentioned a few times is 
+the \emph{support vector machines} (SVMs).
+SVMs are quite similar to the perceptron.
+However,
+they pick the linear discriminator that
+maximizes the margin between the classes.
+Figure~\ref{fig:svm-example} demonstrates the SVM solution
+for the same problem demonstrated in Figure~\ref{fig:perceptron-alg}.
+Unlike perceptron algorithm,
+the linear discriminator found by SVM is equally
+distant to the nearest members of each class,
+which are called support vectors.
+The SVM also comes with a built-in regularization scheme
+that is motivated by minimizing the expected test error.
+SVMs are theoretically sound,
+successful linear classifiers that still produce the best results
+in quite a few classification tasks.
+\begin{marginfigure}
+  \centering
+%    \tikzset{external/export next=false}
+  \tikzsetnextfilename{svm-example}
+    \begin{tikzpicture}[x=22mm,y=22mm,]
+      % base
+      \clip (-1,-1) rectangle (1,1);
+      \draw[<->,thick] (-1,0) -- (1,0);
+      \draw[<->,thick] (0,-1) -- (0,1);
+
+      \foreach \x/\y/\i in {-0.75/0.75/1, -0.75/0.5/2, -0.20/-0.70/3}{%
+        \node[font=\scriptsize,circle, inner sep=0cm, outer sep=0pt,%
+               fill=blue!50, minimum size=1.5mm]
+          (n-\i) at (\x, \y) {$\mathbf{-}$};
+      }
+      \foreach \x/\y/\i in {0.75/0.75/1, 0.25/0.25/2,%
+                            0.25/0.75/3, 0.3/-0.4/4}{%
+        \node[font=\scriptsize,circle, inner sep=0cm, outer sep=0pt,%
+               fill=orange!50, minimum size=1.5mm]
+          (p-\i) at (\x, \y) {$\mathbf{+}$};
+      }
+      \coordinate (o) at (0, 0);
+
+      \draw[thick,dashed, shorten >=-10cm,shorten <=-10cm] (n-1) -- (n-3)
+        node[pos=-0.5,coordinate] (m1) {}
+        node[pos=1.5,coordinate] (m2) {}
+        ;
+
+      \coordinate (p4m) at ($ (p-4) - (n-1) + (n-3)$) {};
+      \draw[thick,dashed, shorten >=-10cm,shorten <=-10cm] (p-4) -- (p4m)
+        node[pos=0.5,coordinate] (m3) {}
+        node[pos=-1.5,coordinate] (m4) {};
+
+      \draw[fill=blue,opacity=0.1] (m1) -- ($(m1)!10cm!-90:(m2)$)
+        -- ($(m2)!10cm!90:(m1)$) -- (m2) -- cycle;
+      \draw[fill=orange,opacity=0.1] (m3) -- ($(m3)!10cm!-90:(m4)$)
+        -- ($(m4)!10cm!90:(m3)$) -- (m4) -- cycle;
+      \draw[thick] ($(m1)!0.5!(m4)$) -- ($(m2)!0.5!(m3)$);
+  \end{tikzpicture}
+  \caption{%
+    A demonstration of support vector machines.
+  }\label{fig:svm-example}
+\end{marginfigure}
+
+Besides the various other interesting classification methods,
+we have not discussed how to handle non-linearity either.
+For most linear classifiers,
+the answer is similar to the regression case.
+Use of non-linear basis functions help linear classifiers too.
+However, we will discuss non-linearity alongside artificial neural networks
+in a separate lecture.
+
+Our discussion of the classification methods have been limited
+to binary or multi-class classification
+where label are mutually exclusive.
+In some classification problems,
+the objects we want to classify may belong to more than
+one class.
+For example,
+in topic classification,
+an article can be both on `politics' and `economy'.
+This type of classification problems are called
+\emph{multi-label classification}.
+Similarly,
+the predictions we want to make in some problems
+fall into a natural hierarchy.
+Such classification problems \emph{hierarchical classification},
+is yet another interesting variation of the problem
+that was not discussed in this lecture.
+
+Finally, another related topic beyond the scope of this introduction 
+is the \emph{classifier ensembles}.
+It is known that combining predictions of different classifiers,
+under certain conditions perform better than a single classifier.
+
+%\section{Where to go from here}
+

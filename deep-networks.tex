@@ -1,0 +1,1283 @@
+\chapter{\label{chap:deep-anns}Deep neural networks}
+\xdef\xvec{10mm}
+\xdef\yvec{15mm}
+
+
+\emph{Deep learning} refers to a set of machine learning methods
+that have recently been (re)popularized.
+One of the important aspects of the deep learning is
+the use of deeper neural networks with more than one hidden layers.
+They have been successfully applied to many machine learning methods,
+and they are also the dominant approach used in
+the natural language processing.
+Deep ANNs are not just fully-connected feed-forward networks
+with multiple hidden layers as the one presented
+in Figure~\ref{fig:deep-ff-network}.
+The typical architectures used in the field involve
+\emph{sparse} connectivity and \emph{weight sharing}.
+This lecture will introduce two common architectures,
+\emph{recurrent networks} (RNNs) and \emph{convolutional networks} (CNNs).
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}
+      \tikzsetnextfilename{deep-network}
+			\begin{tikzpicture}[shorten >=1pt,->,x=10mm, y=13mm,
+													blue!40!black]
+				\tikzset{neuron/.style={draw,%
+																circle,%
+																fill=black!20,%
+																inner sep=0,%
+                                minimum size=8}
+        };
+
+        \foreach \x in {1, ..., 4} {
+          \node (n-0-\x) at (\x, 0) {};
+					\foreach \y in {1, ..., 4} {
+						\node[neuron] (n-\y-\x) at (\x, \y) {};
+					}
+        }
+        \foreach \x in {1, ..., 4} {
+					\foreach \y in {1, ..., 4} {
+            \pgfmathparse{int(\y-1)}
+            \xdef\yy{\pgfmathresult};
+            \foreach \xx in {1, ..., 4} {
+              \draw (n-\yy-\xx) -- (n-\y-\x);
+            }
+					}
+        }
+
+        \node[yshift=-2mm] at (n-0-1) {$x_{1}$};
+        \node[yshift=-2mm] at (n-0-4) {$x_{m}$};
+        \node at (2.5, 0) {\ldots};
+        \node[neuron] (o-1) at (2, 5) {};
+        \node[neuron] (o-2) at (3, 5) {};
+
+        \foreach \x in {1, ..., 4} {
+					\foreach \y in {1, ..., 2} {
+              \draw (n-4-\x) -- (o-\y);
+          }
+        }
+      \end{tikzpicture}
+  \caption{A deep feed-forward (fully-connected) network.}
+  \label{fig:deep-ff-network}
+\end{marginfigure}
+
+Earlier, we noted that an ANN with a single hidden layer is
+a universal function approximator.
+That is, it can approximate any computable function
+with arbitrary precision.
+Then, a natural question to ask is `why should one use more than one layer?'
+The first reason is related to the proof that ANNs with a single hidden layer
+are universal approximator.
+The proof is very general,
+and there is no way to tell how many units one needs in
+the single hidden layer.
+The second reason is to do with the fact that
+certain problems seem to suit well to ANN architectures
+with multiple layer.
+These involve problems where layers, or hierarchies of features are useful.
+A common example from image processing is,
+for example,
+recognizing objects that are composed of simple shapes,
+which are combination of even simpler lines or curves (e.g., edges in the image)
+which in turn are combinations of smaller parts,
+and so on.
+However,
+the depth does not have to be only be for a hierarchy of features.
+As we will see soon,
+it one can also represent time as depth in a deep network.
+
+Although there has been many interesting recent developments,
+many of the ideas are developed during 1980's and 1990's.
+The most important reason for the present success and the renewed interest
+is probably the developments in computing hardware.
+Particularly, availability of vector processors,
+such as graphical processing units (GPUs) in personal computers,
+that perform linear algebra operations efficiently
+made training large neural networks feasible.
+The increased availability of labeled and unlabeled data is another reason.
+At present,
+the deep networks are the default or dominant method in many fields,
+including NLP.
+In this lecture, we will introduce two architectures that are commonly used
+in NLP, namely RNNs and CNNs,
+and discuss some of the common practices and issues that arise
+while training deep networks.
+
+\section{Recurrent neural networks}
+
+\begin{marginfigure}
+  \centering
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{rnn-example}
+    \begin{tikzpicture}[blue!50!black,x=\xvec,y=\yvec]
+      \tikzset{neuron/.style={draw,%
+                              circle,%
+                              inner sep=1pt,%
+                              minimum size=6mm,%
+                              fill=black!20%
+        }
+      };
+      \foreach \x in {1, ..., 4} {
+        \node (i-\x) at (\x, 0) {$x_{\x}$};
+        \node[neuron] (h-\x) at (\x, 1) {$h_{\x}$};
+      }
+      \node[neuron] (o) at (2.5, 2) {$y$};
+      \foreach \x in {1, ..., 4} {
+        \foreach \y in {1, ..., 4} {
+          \draw[->] (i-\x) -- (h-\y);
+        }
+        \draw[->] (h-\x) -- (o);
+      }
+      \draw[very thick] ([xshift=-2mm,yshift=-2mm]h-1.south west) 
+        rectangle ([xshift=2mm,yshift=2mm]h-4.north east);
+      \draw[very thick,->,>=stealth]
+        ([yshift=1mm,xshift=-2mm]h-1.north) arc (45:335:0.5);
+    \end{tikzpicture}
+  \caption{A schematic representation of a recurrent network.
+    The thick recurrent link on the hidden layer indicates
+    connections from each hidden unit to every hidden unit
+    (including itself).
+  }
+  \label{fig:rnn-example}
+\end{marginfigure}
+Recurrent neural networks (RNNs) are sequence learning models.
+Unlike feed-forward networks which only has a forward flow of information
+during prediction,
+RNNs include (time-delayed) loops.
+Figure~\ref{fig:rnn-example} presents a typical RNN.
+Without the thick recurrent link presented, the RNN is simply
+a feed forward network.
+What makes RNNs special is the backwards loop over the hidden units.
+This makes an RNN to use the information in the previous hidden states
+as well as the current input.
+Hence, although the RNNs process a single input item (e.g., word)
+at a time, they have a memory,
+they may make use of the information from the past observations
+(e.g., earlier words).
+
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}
+      \tikzsetnextfilename{rnn-elman-network}
+      \begin{tikzpicture}[blue!50!black,x=8mm]
+        \tikzset{layer/.style={draw,%
+                               inner sep=1pt,%
+                               minimum width=20mm,%
+                               minimum height=7mm%
+          }
+        };
+
+        \node[layer,draw=none] (inp) at (0,0) {Input};
+        \node[layer,fill=black!20,left=8mm of inp] (c) {Context units};
+        \node[layer,fill=black!20,above=1cm of inp] (h) {Hidden units};
+        \node[layer,fill=black!20,above=1cm of h] (o) {Output units};
+        \draw[very thick,->,shorten >=1pt,>=stealth] (inp) -- (h);
+        \draw[very thick,->,shorten >=1pt,>=stealth] (h) -- (o);
+        \draw[very thick,->,shorten >=1pt,>=stealth] (c) -- (h);
+        \draw[red,yshift=1mm,inner sep=0pt,minimum width=9mm,minimum height=5mm,very thick,->,>=stealth] (h.west) arc (90:158:2.2)
+          node[above,sloped,midway,black] {copy};
+      \end{tikzpicture}
+  \caption{Another schematic representation of a recurrent network,
+    which used describing simple recurrent networks
+    (SRNs, also known as Elman networks).
+    The link with label `copy' does not have any associated weights.
+  }
+  \label{fig:srn}
+\end{marginfigure}
+Another way to look at a recurrent network,
+often used for introducing \emph{simple recurrent networks}
+(SRNs) is to assume that we have a set of `context' units
+which are the copies of the hidden units from the past time step.
+This is shown in Figure~\ref{fig:srn},
+where the special link labeled `copy' does not have any learned weights,
+but the other links,
+including the one from the context unit to the hidden units,
+have weights that are learned.
+As a result,
+the hidden units can combine the information
+from the past hidden representation and the current input.
+This representation should make it clear the forward operation of
+an RNN. 
+
+
+In an SRN, like the one presented in Figure~\ref{fig:srn},
+it is also possible to apply the standard backpropagation (BP) algorithm,
+since the weights that are learned are feed-forward.
+However, applying standard BP
+means that error is not backpropagated more than one time step.
+In modern recurrent networks, 
+a modified version of the BP algorithm,
+often called \emph{backpropagation through time} (BPTT), is used.
+To understand the BPTT,
+it is useful to unfold, or unroll the network.
+An unrolled recurrent network is presented in Figure~\ref{fig:rnn-unrolled}.
+\begin{figure}
+  \centering
+%      \tikzset{external/export next=false}
+    \tikzsetnextfilename{rnn-unrolled}
+    \begin{tikzpicture}
+      \tikzset{layer/.style={draw,%
+                             inner sep=1pt,%
+                             minimum width=12mm,%
+                             minimum height=8mm,%
+                             fill=black!20%
+        }
+      };
+      \tikzset{ilayer/.style={layer,fill=white,rounded corners}
+      };
+
+      \node[] (x0) {$\vect{x}^{(0)}$};
+      \node[right=of x0] (x1) {$\vect{x}^{(1)}$};
+      \node[right=of x1] (x2) {\dots};
+      \node[right=of x2] (x3) {$\vect{x}^{(t-1)}$};
+      \node[right=of x3] (x4) {$\vect{x}^{(t)}$};
+      \node[layer,above of=x0,yshift=5mm] (h0) {$h^{(0)}$};
+      \node[layer,above of=x1,yshift=5mm] (h1) {$h^{(1)}$};
+      \node[above of=x2,yshift=5mm] (h2) {\ldots};
+      \node[layer,above of=x3,yshift=5mm] (h3) {$h^{(t-1)}$};
+      \node[layer,above of=x4,yshift=5mm] (h4) {$h^{(t)}$};
+      \node[layer,above=10mm of h0] (y0) {$y^{(0)}$};
+      \node[layer,above=10mm of h1] (y1) {$y^{(1)}$};
+      \node[above=10mm of h2] (y2) {\ldots};
+      \node[layer,above=10mm of h3] (y3) {$y^{(t-1)}$};
+      \node[layer,above=10mm of h4] (y4) {$y^{(t)}$};
+      \foreach \x in {0, ..., 4}{
+        \ifthenelse{\x = 2}{}{%
+          \draw[very thick,->,shorten >=1pt,>=stealth,orange]
+            (x\x) -- (h\x);
+          \draw[very thick,->,shorten >=1pt,>=stealth,blue]
+            (h\x) -- (y\x);
+        }
+        \ifthenelse{\x = 0}{}{%
+          \pgfmathparse{int(int(\x)-1)};
+          \xdef\prevx{\pgfmathresult};
+          \draw[very thick,->,shorten >=1pt,>=stealth]
+              (h\prevx) -- (h\x);
+        }
+      }
+    \end{tikzpicture}
+  \caption{An unrolled RNN.
+    The superscripts indicate the time steps.
+    Note that the weights represented with the links with the same color
+    are \emph{shared}.
+  }
+  \label{fig:rnn-unrolled}
+\end{figure}
+
+The representation in in Figure~\ref{fig:rnn-unrolled} is describes the
+same type of network described in Figure~\ref{fig:rnn-example}.
+The difference is, in Figure~\ref{fig:rnn-unrolled},
+we represent each time step separately.
+This representation also turns the network into a deep feed-forward network.
+And application of the BP algorithm is also straightforward.
+The error made at any time step is reflected the input and
+hidden layer representations before this time step.
+It is also important to realize in Figure~\ref{fig:rnn-unrolled} is that,
+although the network is deep, most parameters are shared.
+
+Although BPTT gives us a way to apply BP to recurrent networks,
+the (time)depth in RNNs lead to an problem called \emph{unstable gradients}.
+To appreciate the problem,
+remember that updates applied to weights in each layer is 
+calculated using the chain rule of derivatives.
+As a result, 
+the update applied to the weights in earlier stages of a deep network
+will be composed of a large number long chain of (matrix) multiplications.
+Multiplying a series of (positive) numbers less than \num{1}
+will cause the error signal to be very small,
+slowing down learning, maybe to the extent that nothing is learned.
+Similarly, multiplying a series of (positive) numbers greater than \num{1}
+will cause the error signal to be too large,
+causing instabilities due to large weight updates.
+The former case is called \emph{vanishing gradients},
+and the latter is called \emph{exploding gradients} in the literature.
+
+To solve the exploding gradients,
+often a simple technique called \emph{gradient clipping} is used.
+Gradient clipping simply means truncating gradients
+larger than a particular value to a fixed threshold.
+The solution of the vanishing gradients is more involved.
+
+\subsection{Gated recurrent networks}
+To solve the vanishing gradient problem,
+and allow an RNN to learn through a longer time distance,
+a type of RNNs that are called \emph{gated RNNs} are used.
+We will not go into the details of the gated recurrent networks in this class.
+However, we briefly mention two variants that are popular in the field.
+
+\begin{marginfigure}
+  \centering
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{lstm-cell}
+    \begin{tikzpicture}[y=6mm,x=6mm,thick,font=\scriptsize]
+      \draw[rounded corners] (0,0) rectangle (6,5);
+      \node[draw,inner sep=2pt] (n1) at (1,2) {$\sigma_{f}$};
+      \node[draw,inner sep=2pt] (n2) at (2,2) {$\sigma_{i}$};
+      \node[font=\tiny,fill=gray!30,draw,inner sep=2pt] (n3) at (3,2) {tanh};
+      \node[draw,inner sep=2pt] (n4) at (4,2) {$\sigma_{o}$};
+      \node[draw,circle,inner sep=0pt] (f) at (3,3) {$\times$};
+      \node[draw,circle,inner sep=0pt] (o) at (5,2) {$\times$};
+      \node[draw,circle,inner sep=0pt] (c1) at (1,4) {$\times$};
+      \node[draw,circle,inner sep=0pt] (c2) at (3,4) {$+$};
+      \node[font=\tiny,draw,ellipse,minimum width=2.5em,inner sep=1pt] (co) at (5,3) {tanh};
+      \draw[->] (-0.2,4) -- (c1);
+      \draw[->] (c1)   -- (c2);
+      \draw[->] (c2)   -- (6.2,4);
+
+      \draw[->,rounded corners] (-0.2,1) -- (4,1) -- (n4.south);
+      \draw[->] (1,-0.2) -- (n1);
+      \draw[->] (2,1) -- (n2);
+      \draw[->] (3,1) -- (n3);
+
+      \draw[->] (n1) -- (c1);
+      \draw[->,rounded corners] (n2) -- (2,3) -- (f);
+      \draw[->] (n3) -- (f);
+      \draw[->] (f) -- (c2);
+
+      \draw[->] (n4) -- (o);
+      \draw[->] (5,4) -- (co);
+      \draw[->] (co) -- (o);
+      \draw[->,rounded corners] (o) -- (5,1) -- (6.2, 1);
+
+      \node[anchor=east] at (-0.2,4) {$c^\text{(t-1)}$};
+      \node[anchor=east] at (-0.2,1) {$h^\text{(t-1)}$};
+      \node[anchor=west] at (6.2,4) {$c^\text{(t)}$};
+      \node[anchor=west] at (6.2,1) {$h^\text{(t)}$};
+
+      \node[anchor=north] at (1,-0.2) {$x^{(t)}$};
+    \end{tikzpicture}
+  \caption{A schematic representation an LSTM cell.
+    The drawing similar to the ones from
+    a \href{https://colah.github.io/posts/2015-08-Understanding-LSTMs/}{blog post by Chris Olah}.
+  }
+  \label{fig:lstm}
+\end{marginfigure}
+The \emph{long-short-term memory} (LSTM) cell,
+which is presented in Figure~\ref{fig:lstm},
+controls the information kept, added or removed in the hidden representation
+through a number of `gates'.
+The LSTM keeps two vectors of hidden representations,
+the one called the `hidden state' (`\vect{h}' in the figure)
+and the other one is called the `cell state' (`\vect{c}' in the figure).
+The idea is the that the cell state is the keeps the memory,
+while a combination of the cell state, previous hidden state,
+and the current input is passed to the output layer.
+Both the cell state and the hidden layer is also passed to the next
+time step after a number of operations.
+The unshaded square blocks in the figure are called gates.
+They are simply ANN layers with sigmoid activation function.
+The circles (and the ellipse) in the figure represent 
+element-wise vector operations.
+The forget gate ($\sigma_{f}$)
+controls what is removed (or kept) from the cell state
+and they control what is removed, and added to cell state
+based on the previous hidden state and the current input.
+The input gate ($\sigma_{i}$) controls what is added to the cell state.
+And the output gate ($\sigma_{o}$) controls the hidden unit output.
+
+The LSTM and its variants has been used successfully
+in many sequence learning tasks.
+A somewhat simpler variant,
+called simply \emph{gated recurrent unit} (GRU),
+has also become quite popular,
+and likely to be found in many standard neural network tools and libraries.
+The gated RNNs are complex models,
+the success of one variant or the other differs in different applications.
+However, in for most uses, gated RNNs yield better results than simple RNNs.
+
+\subsection{Different uses of RNNs}
+
+RNNs have been used in a number of different linguistic problems.
+The architecture is flexible, and can be extended in many ways.
+Here, we briefly go through some of the common variations.
+
+A very common practice is to use \emph{bidirectional} RNNs.%
+A bidirectional RNN is composed of two RNNs,
+one run forward as we discussed above,
+and another one run backwards through the sequence. 
+The hidden representations from both RNNs are then combined
+and fed to the later layers in the network architecture.
+Unless the application requires online sequential processing,
+bidirectional networks are possible,
+and often perform better than unidirectional variants.
+A bidirectional RNN is shown in Figure~\ref{fig:bidirectional-rnn}.
+\begin{marginfigure}
+  \centering
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{rnn-bidirectional}
+    \begin{tikzpicture}[x=5mm]
+      \tikzset{layer/.style={draw,%
+                             inner sep=1pt,%
+                             minimum width=6mm,%
+                             minimum height=4mm,%
+                             fill=black!20%
+        }
+      };
+      \tikzset{ilayer/.style={layer,fill=white,rounded corners}
+      };
+
+      \node[font=\scriptsize] (x0) {$\vect{x}^\text{(t-1)}$};
+      \node[font=\scriptsize,right=6mm of x0] (x1) {$\vect{x}^\text{(t)}$};
+      \node[font=\scriptsize,right=6mm of x1] (x2) {$\vect{x}^\text{(t+1)}$};
+
+      \node[layer,above of=x0,yshift=5mm] (h0) {};
+      \node[layer,above of=x1,yshift=5mm] (h1) {};
+      \node[layer,above of=x2,yshift=5mm] (h2) {};
+
+      \node[layer,above of=h0,yshift=5mm] (hh0) {};
+      \node[layer,above of=h1,yshift=5mm] (hh1) {};
+      \node[layer,above of=h2,yshift=5mm] (hh2) {};
+
+      \node[font=\scriptsize,layer,above=8mm of hh0] (y0) {$y^\text{(t-1)}$};
+      \node[font=\scriptsize,layer,above=8mm of hh1] (y1) {$y^\text{(t)}$};
+      \node[font=\scriptsize,layer,above=8mm of hh2] (y2) {$y^\text{(t-1)}$};
+
+      \foreach \x in {0, 1, 2} {
+        \draw[->,>=stealth] (x\x) -- (h\x);
+        \draw[->,>=stealth] (hh\x) -- (y\x);
+      }
+
+      \draw[->,>=stealth] ([xshift=-5mm]h0.west) -- (h0);
+      \draw[->,>=stealth] (h0) -- (h1);
+      \draw[->,>=stealth] (h1) -- (h2);
+      \draw[->,>=stealth] (h2) -- ([xshift=5mm]h2.east);
+
+      \draw[->,>=stealth] (hh0) -- ([xshift=-5mm]hh0.west);
+      \draw[->,>=stealth] (hh2) -- (hh1);
+      \draw[->,>=stealth] (hh1) -- (hh0);
+      \draw[->,>=stealth] ([xshift=5mm]hh2.east) -- (hh2);
+
+      \draw[->] (x0) to[bend left=30] (hh0);
+      \draw[->] (x1) to[bend left=30] (hh1);
+      \draw[->] (x2) to[bend left=30] (hh2);
+      \draw[->] (h0) to[bend right=35] (y0);
+      \draw[->] (h1) to[bend right=35] (y1);
+      \draw[->] (h2) to[bend right=35] (y2);
+%      \draw[->,>=stealth] (x0.north west) arc (210:135:1.9);
+%      \draw[->,>=stealth] (x1.north west) arc (210:135:1.9);
+%      \draw[->,>=stealth] (x2.north west) arc (210:135:1.9);
+%      \draw[->,>=stealth] ([yshift=-2mm]h0.north east)
+%        arc[start angle=-30, end angle=45, radius=2.2];
+%      \draw[->,>=stealth] ([yshift=-2mm]h1.north east)
+%        arc[start angle=-30, end angle=45, radius=2.2];
+%      \draw[->,>=stealth] ([yshift=-2mm]h2.north east)
+%        arc[start angle=-30, end angle=45, radius=2.2];
+
+%      \node at ([xshift=-3cm]h0.west) {Forward states};
+%      \node at ([xshift=-1cm]h0.west) {\ldots};
+%      \node at ([xshift=1cm]h2.east) {\ldots};
+%      \node at ([xshift=-3cm]hh0.west) {Backward states};
+%      \node at ([xshift=-1cm]hh0.west) {\ldots};
+%      \node at ([xshift=1cm]hh2.east) {\ldots};
+
+    \end{tikzpicture}
+  \caption{A bidirectional RNN.} 
+  \label{fig:bidirectional-rnn}
+\end{marginfigure}
+
+RNNs can be used for a typical sequence model such as hidden Markov models,
+In this case, the we use output of the RNN at each time step
+to predict a label as shown in Figure~\ref{fig:rnn-unrolled}.
+Such a network learns a one-to-one mapping
+between equal-length inputs and the outputs.
+The output layer is typically a classification
+(e.g., using softmax activation).
+This type of networks have many applications in NLP
+typical examples including POS tagging, and named entity recognition (NER).
+
+Another use of RNNs is depicted in Figure~\ref{fig:rnn-many-to-one}.
+In this case the intermediate representations build by the RNN 
+is not used for any prediction.
+The network builds a representation $h^{(t)}$ for the whole sequence,
+and this representation is used for assigning a label to the sequence.
+This RNN configuration is used frequently for sequence classification tasks,
+e.g., text classification tasks like spam detection.%
+\sidenote[][-3\baselineskip]{A variation of this architecture,
+  where all the intermediate representations are combined somehow
+  for a single final prediction is also common.}
+\begin{figure}
+  \centering
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{rnn-many-to-one}
+  \begin{tikzpicture}
+    \tikzset{layer/.style={draw,%
+                           inner sep=1pt,%
+                           minimum width=12mm,%
+                           minimum height=8mm,%
+                           fill=black!20%
+      }
+    };
+    \tikzset{ilayer/.style={layer,fill=white,rounded corners}
+    };
+
+    \node[] (x0) {$\vect{x}^{(0)}$};
+    \node[right=of x0] (x1) {$\vect{x}^{(1)}$};
+    \node[right=of x1] (x2) {\dots};
+    \node[right=of x2] (x3) {$\vect{x}^{(t-1)}$};
+    \node[right=of x3] (x4) {$\vect{x}^{(t)}$};
+    \node[layer,above of=x0,yshift=5mm] (h0) {$h^{(0)}$};
+    \node[layer,above of=x1,yshift=5mm] (h1) {$h^{(1)}$};
+    \node[above of=x2,yshift=5mm] (h2) {\ldots};
+    \node[layer,above of=x3,yshift=5mm] (h3) {$h^{(t-1)}$};
+    \node[layer,above of=x4,yshift=5mm] (h4) {$h^{(t)}$};
+
+    \node[layer,above=10mm of h4] (y4) {$y^{(t)}$};
+    \foreach \x in {0, ..., 4}{
+      \ifthenelse{\x = 2}{}{%
+        \draw[very thick,->,shorten >=1pt,>=stealth]
+          (x\x) -- (h\x);
+      }
+      \ifthenelse{\x = 0}{}{%
+        \pgfmathparse{int(int(\x)-1)};
+        \xdef\prevx{\pgfmathresult};
+        \draw[very thick,->,shorten >=1pt,>=stealth]
+            (h\prevx) -- (h\x);
+      }
+    }
+    \draw[very thick,->,shorten >=1pt,>=stealth] (h4) -- (y4);
+  \end{tikzpicture}
+  \caption{An RNN for sequence classification.
+    Only the final representation built by the RNN is used for prediction.} 
+  \label{fig:rnn-many-to-one}
+\end{figure}
+
+On final standard variant that is interesting for NLP applications
+called a \emph{sequence-to-sequence} (or seq2seq) network.
+In fact, this is an encoder--decoder architecture,
+where both encoder and the decoder are recurrent networks.
+In this setup, shown in Figure~\ref{fig:rnn-seq2seq},
+the encoder RNN builds a representation for the complete input sequence, 
+which typically is terminated by a special end-of-sequence symbol.
+The decoder's hidden layer is initialized using this representation,
+and it is expected to produce the output sequence,
+followed by the end-of-sequence symbol.
+A very common variation in many applications is 
+to provide the previous output as input to the encoder
+(shown with the gray curved arrows in the figure).
+Note that we can train the network gold-standard output sequence.
+However, during prediction time, the model has to rely on its own output.
+\begin{figure*}
+  \centering
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{rnn-seq2seq}
+  \begin{tikzpicture}[
+      minimum width=12mm,
+      minimum height=8mm,
+    ]
+    \tikzset{layer/.style={draw,%
+                           inner sep=1pt,%
+                           minimum width=10mm,%
+                           minimum height=8mm,%
+                           fill=black!20%
+      }
+    };
+    %    \tikzset{ilayer/.style={layer,fill=white,rounded corners}};
+
+    \node[] (x0) {$\vect{x}^{(0)}$};
+    \node[right=of x0] (x1) {$\vect{x}^{(1)}$};
+    \node[right=of x1] (x2) {\dots};
+    \node[right=of x2] (x3) {$\langle\text{eos}\rangle$};
+    \node[right=of x3] (x4) {};
+    \node[right=of x4] (x5) {};
+    \node[right=of x5] (x6) {};
+    \node[right=of x6] (x7) {};
+
+    \node[layer,above=of x0] (h0) {};
+    \node[layer,above=of x1] (h1) {};
+    \node[above=of x2] (h2) {\ldots};
+    \node[layer,above=of x3] (h3) {};
+    \node[layer,above=of x4] (h4) {};
+    \node[above=of x5] (h5) {\ldots};
+    \node[layer,above=of x6] (h6) {};
+    \node[layer,above=of x7] (h7) {};
+
+    \node[layer,above=of h3.base] (y3) {$y^{(1)}$};
+    \node[layer,above=of h4.base] (y4) {$y^{(2)}$};
+    \node[above=of h5.base] (y5) {\ldots};
+    \node[layer,above=of h6.base] (y6) {$y^{(t)}$};
+    \node[layer,above=of h7.base] (y7) {$\langle\text{eos}\rangle$};
+    \foreach \x in {0, ..., 7}{
+      \ifthenelse{\x = 2 \OR \x > 3}{}{%
+        \draw[thick,->,shorten >=1pt,>=stealth]
+          (x\x) -- (h\x);
+      }
+      \ifthenelse{\x = 0}{}{%
+        \pgfmathparse{int(int(\x)-1)};
+        \xdef\prevx{\pgfmathresult};
+        \draw[thick,->,shorten >=1pt,>=stealth]
+            (h\prevx) -- (h\x);
+      }
+    }
+    \draw[gray,thick,->] (y3.north) 
+      .. controls ++(45:3) and ++(45:-3) ..
+      (h4.south);
+    \draw[gray,thick,->] (y6.north) 
+      .. controls ++(45:3) and ++(45:-3) ..
+      (h7.south);
+    \draw[thick,->,shorten >=1pt,>=stealth] (h4) -- (y4);
+    \draw[thick,->,shorten >=1pt,>=stealth] (h3) -- (y3);
+  \end{tikzpicture}
+  \caption{A sequence-to-sequence model.}
+  \label{fig:rnn-seq2seq}
+\end{figure*}
+
+Sequence-to-sequence networks similar to the one in Figure~\ref{fig:rnn-seq2seq}
+are capable of transforming a sequence
+to another sequence with a different length.
+They are used in many applications,
+probably most popular application being machine translation.
+The modern seq2seq models are generally more complex than
+the one described above.  
+A very popular extension to such models,
+called an \emph{attention mechanism}
+to provide the intermediate representations built by the encoder
+to the decoder time steps,
+often passing through another network component that learns
+what parts of the input is more important for the present prediction task.
+It is also common to use deeper, stacked,
+RNN layers for both encoder and the decoder,
+and bidirectional RNNs for the encoder part of the network.%
+\sidenote{Can we use a bidirectional layer for the decoder?}
+
+\section{Convolutional networks}
+
+Convolutional neural networks (CNNs) are another type of popular ANN architecture.
+They have become particularly popular in image processing tasks,
+but they also made their way into language processing.
+
+Convolution is an operation, a filter, applied to a signal,
+which transforms it based on the neighbouring values at any point.
+It has its roots in in signal processing,
+where it is typically applied to a continuous signal.
+However, for our purposes it is a filter that transforms each discrete unit
+based on its neighbors.
+
+\begin{marginfigure}
+  \centering
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{convolution-images}
+    \begin{tikzpicture}[blue!50!black,x=2.8mm,y=2.8mm]
+%      \draw[gray!50,very thin] (0,0) grid[step=1] (20,8);
+      \draw[step=1] (0,0) grid[thin] (6,6);
+      \draw[step=1] (8,3) grid[thin] (11,6);
+      \draw[step=1] (13,1) grid[thin] (17,5);
+
+      \xdef\x{2}
+      \xdef\y{2}
+      \draw[red,very thick,fill=red!40,opacity=0.2] 
+        ($(\x,\y) + (-1, -1) $)  rectangle ($(\x,\y) + (2, 2)$);
+      \draw[red,very thick,fill=red!40] 
+        (\x,\y)  rectangle ($(\x,\y) + (1, 1)$);
+      \draw[blue,very thick,fill=blue!40]
+        ($(\x, \y) + (12,0)$) rectangle ($(\x, \y) + (13,1)$);
+      \draw[red] ($ (\x, \y) + (2,-1)$) -- (8,3);
+      \draw[red] ($ (\x, \y) + (2,2)$) -- (8,6);
+      \draw[blue] (11,3) -- ($ (\x, \y) + (12,0) $);
+      \draw[blue] (11,6) -- ($ (\x, \y) + (12,1) $);
+
+      \node[anchor=south,font=\footnotesize] at (3, 6)
+        {Input ($\textcolor{red}{\vect{X}}$)};
+      \node[anchor=south,font=\footnotesize] at (9.5, 6)
+        {Filter ($\vect{W}$)};
+      \node[anchor=south,font=\footnotesize] at (15, 6)
+        {Output ($\textcolor{blue}{\vect{Y}}$)};
+      \node[anchor=south,font=\footnotesize] at (9.5, 0)
+        {$\textcolor{blue}{y_{i}} = \sum\limits_{i} w_{i} \textcolor{red}{x_{i}}$};
+    \end{tikzpicture}
+    \caption{A demonstration of convolution in image processing.
+      Every pixel in the image is passed through a filter,
+      where the transformed value of the pixel is a weighted
+      combination of its original value and its neighbors.
+    }\label{fig:image-convolution}
+\end{marginfigure}
+In image processing a filter is typically a square matrix,
+that slides over the complete image to transform every pixel,
+as demonstrated in Figure~\ref{fig:image-convolution}.
+Note that the convolution is not well-defined on the pixels
+at the edges of the image.
+In practice, one `pads' the images
+(with values appropriate for the filter applied)
+to obtain a transformed image with the same size as the original image.
+Otherwise, the result would be a smaller image (as in Figure~\ref{fig:image-convolution}).
+
+\begin{marginfigure}
+  \centering
+  \begin{tcolorbox}[center upper,center lower,]
+      Blurring
+      \[
+        \frac{1}{16} \begin{bmatrix}
+          1 & 2 & 1 \\
+          2 & 4 & 2 \\
+          1 & 2 & 1 \\
+        \end{bmatrix}
+      \]
+      \tcblower
+     Edge detection
+      \[
+        \begin{bmatrix}
+          -1 & -1 & -1 \\
+          -1 &  8 & -1 \\
+          -1 & -1 & -1 \\
+        \end{bmatrix}
+      \]
+  \end{tcolorbox}
+  \caption{Two example filters (convolutions) used in image processing:
+  blurring (top) and edge detection (bottom).}
+  \label{fig:image-covolution-examples}
+\end{marginfigure}
+In standard image processing software many of the operations on images are
+done through convolution operations.
+Figure~\ref{fig:image-covolution-examples} shows two common filters used
+by image processing software.
+The first one, blurring, replaces a pixel
+with a weighted average of its neighborhood,
+making all pixels similar to their neighbors
+and removing the details from the image.
+The second filter shown, edge detection,
+is probably more useful for machine learning.
+The filter replaces pixels with similar intensities with its neighbors
+with numbers close to 0,
+while the pixels that are different from their neighbors
+are assigned to larger intensity values.
+
+The fixed filters demonstrated above are useful (and used)
+in image processing software.
+However, for machine learning we want to \emph{learn} these filters.
+In a typical CNN application, we learn many such filters,
+trained on the task we are interested in.%
+\sidenote{Note that the values in the filter matrices above are
+  the parameters that we want to learn.}
+The hope is that each filter learns some useful aspect of the data.
+For example, edges with different slants from given pixels.
+It is also very common to stack the convolutional layers.
+In a nutshell,
+the idea with multiple layers of convolution is to
+learn a hierarchy of filters.
+Continuing with the examples with edges with different orientations,
+another layer build on edges may learn useful (geometric) shapes,
+and yet another layer may recognize object composed of these shapes,
+and so on.
+Figure~\ref{fig:convolution-layers} first two stages
+of this hypothetical scenario.
+If our aim is, for example, predicting whether an image contains people,
+convolutions over the shapes
+shown in the lower part of Figure~\ref{fig:convolution-layers}
+are likely to  be useful.
+\begin{marginfigure}
+  \centering
+  \begin{tcolorbox}[center upper,center lower,]
+          \tikzset{external/export next=false}
+%          \tikzsetnextfilename{cnn-image-example-features1}%
+          \tikz[x=5mm,y=5mm,thick]%
+            {\draw (0,0) -- (0,1)
+                   (1,1) -- (2,0)
+                   (3,0) -- (4,1)
+                   (5, 0.5) -- (6, 0.5);}
+    \tcblower
+          \tikzset{external/export next=false}
+%          \tikzsetnextfilename{cnn-image-example-features2}%
+            \tikz[x=5mm,y=5mm,thick]%
+            {\draw (0,0) rectangle (1,1);
+             \draw (2,0.5) -- (3,0) -- (4,0.5) -- (3, 1) -- cycle;
+             \draw (5.3,0) -- (5.4,1)
+                   (5.8, 1) -- (6.0, 0)
+                   (5.5, 0) -- (5.6, 0.6) -- (5.7, 0);}
+  \end{tcolorbox}
+  \caption{Results of possible applications of layers of convolutions.
+    First layer of convolution may learn different filters for
+    edges with different orientations (top),
+    while another layer built on it may learn geometric shapes built with them
+    (bottom).
+    Yet another layer may be used to detect objects,
+    like houses, windows, people,
+    based on these shapes (not shown in the figure).
+  }
+  \label{fig:convolution-layers}
+\end{marginfigure}
+
+We discussed convolutions in the context of 2D objects (images),
+since they are most commonly used in this area.
+However, they can easily be extended to 3D objects
+(e.g., for processing videos),
+or applicable to 1D sequences (for speech and language processing).
+
+\begin{marginfigure}
+  \centering
+  \tikzset{external/export next=false}
+    \begin{tikzpicture}[blue!50!black,
+                        x=5mm, y=5mm,
+                        minimum size=5mm,
+                        node distance=6mm,
+                        inner sep=0pt]
+      \tikzset{nedge/.style={>=stealth,->,thick}}
+      \tikzset{elabel/.style={midway,
+                              sloped,
+                              above,
+                              yshift=-1ex,
+                              font=\footnotesize}}
+      \node (x1) {$x_{1}$};
+      \node[above=15mm of x1] (h1) {};
+      \foreach \x in {2, ..., 5} {%
+        \pgfmathparse{int(\x)-1};
+        \xdef\prevx{\pgfmathresult};
+        \node[right=of x\prevx] (x\x) {$x_{\x}$};
+        \ifthenelse{\x = 5}{}{%
+          \node[right=of h\prevx,circle,fill=black!25] (h\x) {$h_{\x}$};
+        }
+      };
+      \draw[nedge,blue] (x1) -- (h2)
+        node[elabel,xshift=-3mm] {$w_{\text{-}1}$};
+      \draw[nedge] (x2) -- (h2)
+        node[elabel] {$w_{0}$};
+      \draw[nedge,blue] (x2) -- (h3)
+        node[elabel,xshift=-3mm] {$w_{1}$};
+      \draw[nedge,red] (x3) -- (h2)
+        node[elabel,xshift=-3mm] {$w_{1}$};
+      \draw[nedge] (x3) -- (h3)
+        node[elabel] {$w_{0}$};
+      \draw[nedge,blue] (x3) -- (h4)
+        node[elabel,xshift=-3mm] {$w_{\text{-}1}$};
+      \draw[nedge,red] (x4) -- (h3)
+        node[elabel,xshift=-3mm] {$w_{1}$};
+      \draw[nedge] (x4) -- (h4) node[elabel] {$w_{0}$};
+      \draw[nedge,red] (x5) -- (h4)
+        node[elabel,xshift=-3mm] {$w_{1}$};
+    \end{tikzpicture}
+  \caption{Demonstration of  1D convolution.
+    The weights indicated with the same colors are
+    the same regardless of their position in the sequence.
+  }
+  \label{fig:covolution-1d}
+\end{marginfigure}
+Now we look at the convolutions more closely,
+but assuming that we work on a single-dimensional sequence.
+The units in the sequence, for our purposes,
+can be (representations of) words, characters, phonemes,
+or other linguistic objects.
+Figure~\ref{fig:covolution-1d} shows convolutions applied to such a sequence.
+If we were running this convolutional network on words,
+the convolution would learn something (useful) about word trigrams.
+For example, the final aim is sentiment classification,
+this convolution would result in higher values at the hidden representation
+if for trigrams that are associated with negative or positive sentiments.
+There are two aspects of the CNNs that set them apart
+from typical neural networks such as MLP.
+First, the weights are \emph{shared},
+the same filter is run through the entire sequence
+without modifying the weights during prediction.
+And second,
+the input layer and the hidden layers are not fully connected.
+As well as being suitable for picking certain features,
+these aspects reduce the number of parameters learned,
+and complexity of the network.
+In practice, many such filters
+(possibly with different input window size)
+used in combination with multiple layers of convolutions,
+and finally with a fully connected prediction layer,
+e.g., a sigmoid or softmax classifier.
+
+\begin{marginfigure}
+  \centering
+    \tikzset{external/export next=false}
+%    \tikzsetnextfilename{cnn-pooling}
+    \begin{tikzpicture}[blue!50!black,
+                        x=5mm, y=5mm,
+                        minimum size=5mm,
+                        node distance=4mm,
+                        inner sep=0pt]
+      \tikzset{nedge/.style={>=stealth,->,thick}}
+      \tikzset{elabel/.style={midway,
+                              sloped,above,
+                              yshift=-1ex,
+                              font=\footnotesize}}
+      \node (x1) {$x_{1}$};
+      \node[above=1cm of x1,circle,fill=black!25] (h1) {$h_{1}$};
+      \node[above=1cm of h1] (hh1) {};
+      \foreach \x in {2, ..., 5} {%
+        \pgfmathparse{int(int(\x)-1)};
+        \xdef\prevx{\pgfmathresult};
+        \node[right=of x\prevx] (x\x) {$x_{\x}$};
+        \node[right=of h\prevx,circle,fill=black!25] (h\x) {$h_{\x}$};
+        \ifthenelse{\x = 5}{}{%
+          \node[right=of hh\prevx,circle,fill=black!25]
+            (hh\x) {$h_{\prevx}^{'}$};
+        }
+      };
+      \draw[nedge] (x1) -- (h1);
+      \draw[nedge,blue] (x1) -- (h2);
+      \draw[nedge,red] (x2) -- (h1);
+      \draw[nedge] (x2) -- (h2);
+      \draw[nedge,blue] (x2) -- (h3);
+      \draw[nedge,red] (x3) -- (h2);
+      \draw[nedge] (x3) -- (h3);
+      \draw[nedge,blue] (x3) -- (h4);
+      \draw[nedge,red] (x4) -- (h3);
+      \draw[nedge] (x4) -- (h4);
+      \draw[nedge,blue] (x4) -- (h5);
+      \draw[nedge,red] (x5) -- (h4);
+      \draw[nedge] (x5) -- (h5);
+
+      
+      \draw[nedge] (h1) -- (hh2);
+      \draw[nedge] (h2) -- (hh2);
+      \draw[nedge] (h3) -- (hh2);
+      \draw[nedge] (h2) -- (hh3);
+      \draw[nedge] (h3) -- (hh3);
+      \draw[nedge] (h4) -- (hh3);
+      \draw[nedge] (h3) -- (hh4);
+      \draw[nedge] (h4) -- (hh4);
+      \draw[nedge] (h5) -- (hh4);
+
+      \node[left=of h1,rotate=90,font=\footnotesize] {Convolution};
+      \node[left=of hh1,rotate=90,font=\footnotesize] {Pooling};
+
+    \end{tikzpicture}
+  \caption{Demonstration of  pooling.
+  }
+  \label{fig:cnn-pooling}
+\end{marginfigure}
+Returning to the example of sentiment classification,
+a CNN layer like the one in Figure~\ref{fig:covolution-1d} will
+discover a trigram with high-sentiment content wherever it occurs
+in the sequence.
+However downstream classification layer need to still consider
+hidden layer activations as separate features.
+In many problems,
+we do not want this location sensitivity.
+For example, a phrase like \emph{not worth seeing} in a movie review
+is an indication of a negative sentiment wherever it appears.
+To make the features learned by convolutions
+\emph{location invariant}, a concept called \emph{pooling} is applied.
+Pooling simply calculates a statistics,
+most commonly `maximum', over a range of its inputs.
+When it is applied to convolutions as in Figure~\ref{fig:cnn-pooling},
+the new features are relatively location invariant.
+Another aspect of the pooling you to note is that,
+it is a fixed operation,
+there are no weights to learned in the pooling layer.
+
+If we apply the `max pooling',
+the value of $h_{1}'$ in the figure is
+the maximum of $h_{1}$, $h_{2}$ and $h_{3}$,
+which means if the convolution detects any interesting trigrams
+from $x_{1}$ to $x_{4}$, it $h_{1}'$ will indicate it.
+Hence, to some extent, a classifier that uses
+the output of the network shown in Figure~\ref{fig:cnn-pooling}
+will be insensitive to the location of the feature detected by the convolution.
+However, Figure~\ref{fig:cnn-pooling} still retains some location sensitivity,
+which may be useful for some applications.
+For example, for a face recognition network,
+it is likely important to detect eyes above a nose.
+In problems where location is not useful at all
+(which is the case in many text classification examples)
+one can pool over the complete convolution output,
+passing a single feature to the classifier from this filter.%
+Remember that we typically use many convolutions,
+hence, in this case,
+the classifier will be given a single feature from each convolution.
+
+\begin{marginfigure}
+  \centering
+    \tikzset{external/export next=false}
+%    \tikzsetnextfilename{cnn-pooling}
+    \begin{tikzpicture}[blue!50!black,
+                        x=5mm, y=5mm,
+                        minimum size=5mm,
+                        node distance=4mm,
+                        inner sep=0pt]
+      \tikzset{nedge/.style={>=stealth,->,thick}}
+      \tikzset{elabel/.style={midway,
+                              sloped,above,
+                              yshift=-1ex,
+                              font=\footnotesize}}
+      \node (x1) {$x_{1}$};
+      \node[above=1cm of x1,circle,fill=black!25] (h1) {$h_{1}$};
+      \foreach \x in {2, ..., 5} {%
+        \pgfmathparse{int(int(\x)-1)};
+        \xdef\prevx{\pgfmathresult};
+        \node[right=of x\prevx] (x\x) {$x_{\x}$};
+        \node[right=of h\prevx,circle,fill=black!25] (h\x) {$h_{\x}$};
+      };
+      
+      \node[above=1cm of h2,circle,fill=black!25] (hh1) {$h_{1}^{'}$};
+      \node[above=1cm of h4,circle,fill=black!25] (hh2) {$h_{2}^{'}$};
+
+      \draw[nedge] (x1) -- (h1);
+      \draw[nedge,blue] (x1) -- (h2);
+      \draw[nedge,red] (x2) -- (h1);
+      \draw[nedge] (x2) -- (h2);
+      \draw[nedge,blue] (x2) -- (h3);
+      \draw[nedge,red] (x3) -- (h2);
+      \draw[nedge] (x3) -- (h3);
+      \draw[nedge,blue] (x3) -- (h4);
+      \draw[nedge,red] (x4) -- (h3);
+      \draw[nedge] (x4) -- (h4);
+      \draw[nedge,blue] (x4) -- (h5);
+      \draw[nedge,red] (x5) -- (h4);
+      \draw[nedge] (x5) -- (h5);
+
+      
+      \draw[nedge] (h1) -- (hh1);
+      \draw[nedge] (h2) -- (hh1);
+      \draw[nedge] (h3) -- (hh1);
+      \draw[nedge] (h3) -- (hh2);
+      \draw[nedge] (h4) -- (hh2);
+      \draw[nedge] (h5) -- (hh2);
+
+    \end{tikzpicture}
+  \caption{The same network presented in Figure~\ref{fig:cnn-pooling},
+    but the pooling layer has a stride of \num{3}.
+  }
+  \label{fig:cnn-stride}
+\end{marginfigure}
+For both convolutions and pooling,
+the examples we looked at so far cover the whole sequence
+by shifting the filter one unit at a time.
+It is common to define a larger \emph{stride},
+that shifts the convolution or pooling over more
+than one unit at a time.
+Figure~\ref{fig:cnn-stride} repeats the network shown
+in Figure~\ref{fig:cnn-pooling} with a stride of \num{3} on the pooling layer.
+With this configuration,
+each output of the pooling layer covers exactly half of the convolutions.
+However, note that due to hierarchical nature of the network,
+they are affected by larger spans of input.
+
+Most CNNs used in practice are deep,
+resulting in diminishing numbers of features
+when successive convolution or pooling layers are
+stacked without \emph{padding} as shown in Figure~\ref{fig:cnn-no-padding}.
+This is sometimes called \emph{valid} padding,
+meaning that each convolution is calculated on real data.
+However, it is a common practice to pad the input,
+typically with \num{0}s,
+so that the output of the network stays stable.
+Figure~\ref{fig:cnn-padding} shows an example of padding applied
+to the same network.
+Here, each layer is padded from both sides with a single `imaginary' input.
+For an image, this would mean padding the matrix from all sides.
+With a stride of \num{1},
+padding only one unit from all sides as in Figure~\ref{fig:cnn-padding}
+results in an output the same dimensions as the input.
+Hence, it is often called \emph{same} padding.
+With a larger stride, however, this would result in a reduction
+in the output dimension more than expected from the stride.
+In such cases it is an option to pad as many values as necessary
+to make sure that the output is of expected dimension,
+which is sometimes called \emph{full} padding.
+
+\begin{marginfigure}
+  \centering
+      \tikzset{external/export next=false}
+%      \tikzsetnextfilename{cnn-padding}
+      \begin{tikzpicture}[x=4mm,y=8mm,blue!50!black]
+        \tikzset{nedge/.style={>=stealth,->}}
+        \tikzset{neuron/.style={draw,%
+                                circle,%
+                                fill=black!20,%
+                                inner sep=0,%
+                                minimum size=8}
+        }
+          \node[inner sep=0, minimum size=8] at (-1, 0) {};
+          \foreach \y in {0, ..., 4} {
+            \pgfmathparse{int(\y+1)};
+            \xdef\xstart{\pgfmathresult};
+            \pgfmathparse{int(9-\y)};
+            \xdef\xend{\pgfmathresult};
+            \foreach \x in {\xstart, ..., \xend} {
+              \node[neuron] (n-\x-\y) at (\x, \y) {};
+              \ifthenelse{\y = 0}{}{%
+                \pgfmathparse{int(\y-1)};
+                \xdef\prevy{\pgfmathresult};
+                \pgfmathparse{int(\x-1)};
+                \xdef\prevx{\pgfmathresult};
+                \pgfmathparse{int(\x+1)};
+                \xdef\nextx{\pgfmathresult};
+                \draw[nedge] (n-\prevx-\prevy) -- (n-\x-\y);
+                \draw[nedge] (n-\x-\prevy) -- (n-\x-\y);
+                \draw[nedge] (n-\nextx-\prevy) -- (n-\x-\y);
+              }
+            }
+          }
+          \node[inner sep=0, minimum size=8] at (10, 0) {};
+      \end{tikzpicture}
+  \caption{A deep CNN network without padding.}
+  \label{fig:cnn-no-padding}
+\end{marginfigure}
+\begin{marginfigure}
+  \centering
+      \tikzset{external/export next=false}
+%      \tikzsetnextfilename{cnn-padding}
+      \begin{tikzpicture}[x=4mm,y=8mm,blue!50!black]
+        \tikzset{nedge/.style={>=stealth,->}}
+        \tikzset{neuron/.style={draw,%
+                                circle,%
+                                fill=black!20,%
+                                inner sep=0,%
+                                minimum size=8}
+        }
+          \foreach \y in {0, ..., 4} {
+            \ifthenelse{\y = 4}{}{%
+              \node[neuron,fill=white] (n--1-\y) at (-1, \y) {};
+              \node[neuron,fill=white] (n-10-\y) at (10, \y) {};
+            }
+            \foreach \x in {0, ..., 9} {
+              \node[neuron] (n-\x-\y) at (\x, \y) {};
+              \ifthenelse{\y = 0}{}{%
+                \pgfmathparse{int(\y-1)};
+                \xdef\prevy{\pgfmathresult};
+                \pgfmathparse{int(\x-1)};
+                \xdef\prevx{\pgfmathresult};
+                \pgfmathparse{int(\x+1)};
+                \xdef\nextx{\pgfmathresult};
+                \draw[nedge] (n-\prevx-\prevy) -- (n-\x-\y);
+                \draw[nedge] (n-\x-\prevy) -- (n-\x-\y);
+                \draw[nedge] (n-\nextx-\prevy) -- (n-\x-\y);
+              }
+            }
+          }
+      \end{tikzpicture}
+  \caption{The same network in Figure~\ref{fig:cnn-no-padding} with padding.
+  }
+  \label{fig:cnn-padding}
+\end{marginfigure}
+
+In NLP, most common use of CNNs is text classification.
+Given a sequence of texts,
+we typically define multiple convolutions, or filters.
+Each convolution, after training,
+will detect an `n-gram' feature with the width of the convolution.
+Although in theory a larger convolution width should learn
+features within its window that are based on a (discontinuous) sub-sequence,
+examples of convolutions with different sizes are sometime used.
+Figure~\ref{fig:cnn-sentiment} demonstrates a possibly way to use
+CNNs for text classification.
+The first layer in the network is typically an \emph{embedding} layer,
+a dense (as opposed to sparse one-hot) representation of the words
+(we will cover embeddings later in this class). 
+The example uses three convolutions,
+first two with width \num{2},
+and the last one with width \num{3}.
+The first convolution in the example, finds something interesting
+in input bigram \emph{not really},
+while the second one is more sensitive to bigram \emph{really worth}.
+The network does a max pooling over the whole sequence,
+and then uses the resulting representations as an input to
+a classifier with a single hidden layer.
+The final layer, a single (likely sigmoid) unit is used for binary classification.
+
+\begin{figure}
+  \tikzset{external/export next=false}
+%  \tikzsetnextfilename{cnn-in-nlp-example}
+  \begin{tikzpicture}[x=1cm, y=1cm,blue!50!black,thick, node distance=2mm]
+    \tikzset{inp/.style={minimum width=2cm,minimum height=6mm}}
+
+    \node[inp] (not) at (0,0) {not};
+    \node[inp,right=of not] (really) {really};
+    \node[inp,right=of really] (worth) {worth};
+    \node[inp,right=of worth] (seeing) {seeing};
+
+    \foreach \n in {not, really, worth, seeing} {
+      \node[above=of \n,inner sep=0pt] (V-\n) 
+        {\tikz{\draw[thick] (0,0) grid[step=5mm] (1.5,0.5);}};
+    }
+
+    \node[inner sep=0pt] (c-1) at (1,2.5)
+      {\tikz{\draw[thick,inner sep=0pt] (0,0) grid[step=5mm] (2.0,0.5);}};
+    \node[right=of c-1,inner sep=0pt] (c-2) 
+      {\tikz{\draw[thick,inner sep=0pt] (0,0) grid[step=5mm] (2.0,0.5);}};
+    \node[right=of c-2,inner sep=0pt] (c-3) 
+      {\tikz{\draw[thick,inner sep=0pt] (0,0) grid[step=5mm] (2.0,0.5);}};
+
+    \draw[red] (V-not.north west) -- (c-1.south west);
+    \draw[red] (V-really.north east) -- ($(c-1.south west) + (0.5, 0) $);
+
+    \draw[red] (V-really.north west) -- ($(c-1.south west) + (0.5, 0) $);
+    \draw[red] (V-worth.north east) -- ($(c-1.south west) + (1.0, 0) $);
+
+    \draw[blue] (V-not.north west) -- (c-2.south west);
+    \draw[blue] (V-really.north east) -- ($(c-2.south west) + (0.5, 0) $);
+
+    \draw[very thick,red, fill=red!80] (c-1.south west) 
+      rectangle ($ (c-1.south west) + (0.5, 0.5) $);
+
+    \draw[very thick,red,fill=red!30] ($ (c-1.south west) + (0.5, 0) $)
+      rectangle ($ (c-1.south west) + (1, 0.5) $);
+
+    \draw[very thick,blue, fill=blue!30] (c-2.south west) 
+      rectangle ($ (c-2.south west) + (0.5, 0.5) $);
+
+    \draw[blue] (V-really.north west) -- ($(c-2.south west) + (0.5, 0) $);
+    \draw[blue] (V-worth.north east) -- ($(c-2.south west) + (1, 0) $);
+
+    \draw[very thick,blue, fill=blue!80] ($(c-2.south west) + (0.5, 0) $) 
+      rectangle ($ (c-2.south west) + (1, 0.5) $);
+
+    \draw[orange] (V-not.north west) -- (c-3.south west);
+    \draw[orange] (V-worth.north east) -- ($(c-3.south west) + (0.5, 0) $);
+    \draw[very thick,orange, fill=orange!30] (c-3.south west) 
+      rectangle ($ (c-3.south west) + (0.5, 0.5) $);
+
+    \node[draw, minimum height=5mm, minimum width=5mm, inner sep=0pt,%
+          above=8mm of c-1, fill=red!80] (p-1) {};
+    \node[draw, minimum height=5mm, minimum width=5mm, inner sep=0pt,%
+          above=8mm of c-2, fill=blue!80] (p-2) {};
+    \node[draw, minimum height=5mm, minimum width=5mm, inner sep=0pt,%
+          above=8mm of c-3, fill=orange!30] (p-3) {};
+
+    \draw (c-1.north west) -- (p-1.south west);
+    \draw (c-1.north east) -- (p-1.south east);
+    \draw (c-2.north west) -- (p-2.south west);
+    \draw (c-2.north east) -- (p-2.south east);
+    \draw (c-3.north west) -- (p-3.south west);
+    \draw (c-3.north east) -- (p-3.south east);
+
+    \node[draw,circle, minimum size=5mm, inner sep=0pt,%
+          above=8mm of p-1] (h-1) {};
+    \node[draw,circle, minimum size=5mm, inner sep=0pt,%
+          above=8mm of p-2] (h-2) {};
+    \node[draw,circle, minimum size=5mm, inner sep=0pt,%
+          above=8mm of p-3] (h-3) {};
+
+    \node[draw,circle, minimum size=5mm, inner sep=0pt,%
+          above=8mm of h-2] (o) {};
+
+    \draw[->] (p-1) -- (h-1);
+    \draw[->] (p-1) -- (h-2);
+    \draw[->] (p-1) -- (h-3);
+    \draw[->] (p-2) -- (h-1);
+    \draw[->] (p-2) -- (h-2);
+    \draw[->] (p-2) -- (h-3);
+    \draw[->] (p-3) -- (h-1);
+    \draw[->] (p-3) -- (h-2);
+    \draw[->] (p-3) -- (h-3);
+
+    \draw[->] (h-1) -- (o);
+    \draw[->] (h-2) -- (o);
+    \draw[->] (h-3) -- (o);
+
+    \node[blue,anchor=east,font=\footnotesize] at (-1,0) {Input};
+    \node[blue,anchor=east,font=\footnotesize] at (-1,0.8) {Word vectors};
+    \node[blue,anchor=east,font=\footnotesize] at (-1,1.5) {Convolution};
+    \node[blue,anchor=east,font=\footnotesize] at (-1,2.5) {Feature maps};
+    \node[blue,anchor=east,font=\footnotesize] at (-1,3.2) {Pooling};
+    \node[blue,anchor=east,font=\footnotesize] at (-1,3.9) {Features};
+    \node[blue,anchor=east,font=\footnotesize] at (-1,5.2) {Classifier};
+  \end{tikzpicture}
+  \caption{A demonstration of CNNs used for text classification.}
+  \label{fig:cnn-sentiment}
+\end{figure}
+
+In real-life examples,
+especially in image processing systems,
+CNNs are typically deeper and also more structured.
+This may make their training difficult despite the sparse connectivity
+and shared weights.
+For very large systems, it is also a common practice to pre-train components
+of the network piece-by-piece.
+In the NLP applications
+like the one demonstrated in Figure~\ref{fig:cnn-sentiment},
+the embeddings are typically trained separately,
+and most of the time training continues on the task as well.
+

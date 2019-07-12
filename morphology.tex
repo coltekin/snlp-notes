@@ -1,0 +1,85 @@
+\chapter{\label{chap:morphology}Computational morphology}
+
+\begin{itemize}
+  \item Motivation
+    \begin{itemize}
+      \item Lexicon size - data sparsity
+      \item Predictions about unknown words
+      \item Parsing / generation
+      \item MT 
+      \item Spell checking
+      \item Information retrieval
+      \item TTS
+    \end{itemize}
+  \item Some definitions
+    \begin{itemize}
+      \item root - stem - lemma - lexeme
+      \item affix - suffix - prefix - infix - circumfix 
+      \item reduplication
+      \item zero - empty morphemes
+      \item inflection vs.\ derivation\\
+        tendencies:
+        \begin{itemize}
+          \item derivation changes category
+          \item inflection tends to be paradigmatic
+          \item inflection is productive
+          \item derivation is lexical, inflection is functional
+          \item inflection is semantically regular
+          \item inflection is restricted syntactically - agreement etc.
+          \item inflection tends to fall on periphery - derivation is more central
+          \item derivation is often repeatable
+        \end{itemize}
+      \item morpheme / morph
+      \item compounding 
+      \item paradigm 
+      \item free - bound morphemes, content vs.\ function
+      \item regular and irregular morphology
+    \end{itemize}
+  \item Morphological typology
+    \begin{itemize}
+      \item Analytic - synthetic
+      \item Isolating - inflectional - agglutinative - templatic
+      \item General tendencies: like suffixing more than prefixing, \ldots
+    \end{itemize}
+  \item Morphological annotation
+    \begin{itemize}
+      \item Morphology in linguistic glosses
+      \item Tagsets in treebanks
+      \item Positional tags
+      \item Morphological databases - CELEX
+    \end{itemize}
+  \item Stemming / lemmatization / segmentation
+    \begin{itemize}
+      \item Compounding / compound splitting
+      \item Tries for finding affixes
+    \end{itemize}
+  \item Tasks in computational morphology
+    \begin{itemize}
+      \item recognition
+      \item analysis
+      \item generation
+    \end{itemize}
+  \item Finite state morphological processing
+    \begin{itemize}
+      \item FSA
+      \item Example: English adjectives (?)
+      \item FSA regex relation
+      \item Regular languages and Chomsky hierarchy
+      \item Deterministic/non-deterministic FSAs
+      \item FST 
+      \item FSTs as relations - properties
+      \item Example FST
+      \item Modeling orthographic/phonetic changes: context-sensitive rewrite rules
+      \item Porter stemmer
+      \item Two-level morphology
+      \item Practical examples: Xerox, SFST, \ldots
+      \item Weighted FSTs
+      \item Weighted FSAs for spelling correction
+    \end{itemize}
+  \item Statistical learning of morphology
+    \begin{itemize}
+      \item Learning (re)inflection
+      \item Unsupervised methods
+    \end{itemize}
+
+\end{itemize}

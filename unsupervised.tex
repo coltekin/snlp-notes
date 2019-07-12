@@ -1,0 +1,2720 @@
+\chapter{\label{chap:unsupervised-ml}Unsupervised machine learning}
+
+Unsupervised learning refers to a set of machine learning methods
+that do not require labeled examples.
+Unlike in supervised learning,
+there is no correct or incorrect solution.
+The hope to is to find some structure in the data.
+As a result,
+the unsupervised methods are often used for exploratory methods
+for discovering structure in the given data. 
+Unsupervised methods may also used 
+as a substitute for supervised their counterparts
+when no labeled data is available,
+or to supplement supervised methods
+in case labeled data is small and unlabeled data is abundant.
+Considering the cost of creating labeled (annotated) data,
+unsupervised methods are attractive.
+However, unsurprisingly,
+they are rarely as accurate as their supervised counterparts.
+
+%TODO: explanation of no free lunch theorem somewhere (not necessarily here)
+
+Since we do not have labels,
+unsupervised learning by itself is an ill-defined problem.
+We do not have a `ground truth',
+which makes measuring the success difficult.
+The question is, then, 
+what drives learning in an unsupervised method?
+The short answer is 
+the similarity or differences
+of the objects of interest.
+
+Traditional unsupervised methods include,
+\emph{clustering},
+\emph{dimensionality reduction},
+and \emph{density estimation}.
+Clustering aims to group the data into sensible clusters.
+Dimensionality reduction aims at reducing the redundancy
+in the data such that a small number of informative dimensions are retained.
+Density estimation assumes that the data at hand is sampled from a number of
+groups whose members are distributed
+according to some probability distributions.
+The aim is, then, to characterize the underlying distributions,
+with which we can determine the likelihood of each data point coming from
+one of the distributions estimated from the data.
+
+Another way of looking at the unsupervised methods is
+as probabilistic models with latent (hidden or unobserved) variables.
+In fact,
+all of the classical methods introduced in this chapter can be viewed
+as different instantiations of probabilistic models.
+For the remainder of this chapter,
+we will go through the classical methods listed above.
+We discuss the probabilistic models in the next chapter.
+
+\section{Clustering}
+
+Clustering aims to solve a problem similar to \emph{classification}.
+Both methods assign the objects of interest into a number of groups.
+However, in case of clustering, we do not know the true group labels.
+What we hope to do is to discover is `natural groupings' of the objects
+in our data set.
+
+Figure~\ref{fig:clustering-data} shows an example data set for clustering.
+Note that unlike in classification,
+the data points do not have labels.
+Humans are often good at clustering
+\num{2} (and maybe \num{3}) dimensional data similar to the one presented
+in Figure~\ref{fig:clustering-data}.
+For the data in Figure~\ref{fig:clustering-data},
+most people are likely to suggest a clustering similar
+to the one presented in Figure~\ref{fig:clustering-data-solution}.
+However, most real world problems require dealing with (very) large 
+feature spaces,
+and it is difficult for humans to visualize and cluster
+data expressed in feature spaces larger than \num{3} dimensions.
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{clustering-data}
+  \begin{tikzpicture}
+    \begin{axis}[
+        x=25, y=25,
+        xlabel={$x_{1}$},
+        ylabel={$x_{2}$},
+        axis lines=left,
+        xtick=\empty,
+        ytick=\empty,
+        xticklabels={,,},
+        yticklabels={,,},
+        xmin=0,
+        ymin=0,
+      ]
+      \addplot[
+        scatter,
+        only marks,
+        point meta=explicit symbolic,
+        mark size=1pt,
+        scatter/classes={%
+          blue={gray},%
+          red={gray},%
+          orange={gray}},
+      ] table[meta=col]{data/k-means.data};
+    \end{axis}
+  \end{tikzpicture}
+%   \begin{tikzpicture}[scale=0.9]
+%     \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+%     \draw[->,thick] (0,0) -- (0,5) node[anchor=south] {$x_{2}$};
+%     \foreach \pos in 
+%     {(1, 3), (0.7, 4), (2, 3.2), (1.2, 3.4), (2,3), (1.5, 2.5),
+%      (1.5, 4)}
+%     {%
+%       \node[draw,
+%             circle,
+%             inner sep=0cm,
+%             outer sep=0pt,
+%             fill=gray,
+%             minimum size=0.8mm] at \pos {};}
+%     \foreach \pos in 
+%     {(2.8, 1.3), (3, 1.9), (3, 1.4), (4,2), (3.2, 2.6), (4.1, 3.2),
+%     (3.5, 1.5), (4, 2.5)}
+%     {%
+%       \node[draw,
+%             circle,
+%             inner sep=0cm,
+%             outer sep=0pt,
+%             fill=gray,
+%             minimum size=0.8mm] at \pos {};}%
+% %    \draw[step=5mm,gray,very thin,dotted] (0,0) grid (5,5);
+% %    \draw[step=10mm,gray] (0,0) grid (5,5);
+%   \end{tikzpicture}
+  \caption{\label{fig:clustering-data}%
+    An example data set in $\mathbb{R}^{2}$ for clustering.
+    Note that unlike classification data (e.g., in Figure~\ref{fig:FIXME}),
+    the data points do not have associated labels.
+  }
+\end{marginfigure}
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{clustering-data-solution}
+  \begin{tikzpicture}
+    \begin{axis}[
+        x=25, y=25,
+        xlabel={$x_{1}$},
+        ylabel={$x_{2}$},
+        axis lines=left,
+        xtick=\empty,
+        ytick=\empty,
+        xticklabels={,,},
+        yticklabels={,,},
+        xmin=0,
+        ymin=0,
+      ]
+      \addplot[
+        scatter,
+        only marks,
+        point meta=explicit symbolic,
+        mark size=1pt,
+        scatter/classes={%
+          blue={mark=triangle*,blue},%
+          red={mark=*,red},%
+          orange={mark=square*,orange}},
+      ] table[meta=col]{data/k-means.data};
+    \end{axis}
+  \end{tikzpicture}
+
+%   \begin{tikzpicture}[scale=0.9]
+%     \tikzset{triangle/.style={fill=red,
+%                              regular polygon,
+%                              regular polygon sides=3,
+%                              minimum size=0.8mm,
+%                              inner sep=0pt,}
+%     }
+%     \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+%     \draw[->,thick] (0,0) -- (0,5) node[anchor=south] {$x_{2}$};
+%     \foreach \pos in 
+%     {(1, 3), (0.7, 4), (2, 3.2), (1.2, 3.4), (2,3), (1.5, 2.5),
+%      (1.5, 4)}
+%     {%
+%       \node[draw,
+%             circle,
+%             inner sep=0cm,
+%             outer sep=0pt,
+%             fill=blue,
+%             minimum size=0.8mm] at \pos {};}
+%     \foreach \pos in 
+%     {(2.8, 1.3), (3, 1.9), (3, 1.4), (4,2), (3.2, 2.6), (4.1, 3.2),
+%     (3.5, 1.5), (4, 2.5)}
+%     {%
+%       \node[draw,
+%             triangle,
+%             inner sep=0cm,
+%             outer sep=0pt,
+%             minimum size=0.8mm] at \pos {};}%
+% %    \draw[step=5mm,gray,very thin,dotted] (0,0) grid (5,5);
+% %    \draw[step=10mm,gray] (0,0) grid (5,5);
+%   \end{tikzpicture}
+  \caption{\label{fig:clustering-data-solution}%
+    A likely clustering of the data in Figure~\ref{fig:clustering-data},
+    into three clusters.
+    In fact, the data is sampled from three bivariate normal
+    distributions with different means,
+    and the labeling indicates the original clusters (distributions).
+  }
+\end{marginfigure}
+
+Example uses of clustering in CL include
+clustering languages or dialects for determining their relationships;
+clustering texts to discover authorship or topics;
+clustering words in such a way
+that semantically similar words fall into the same cluster.
+%TODO: (maybe) examples from the literature
+
+In this chapter,
+we will discuss a few common methods used for clustering.
+Before introducing the methods, however,
+we first discuss formalizing similarity or distances
+between two objects
+and some other related concepts
+which are crucial for any of the methods we will discuss below.
+
+\subsection{Similarity and distance}
+
+Since we do not have real labels for each item,
+we rely on a distance (or similarity) measure in all clustering methods.
+If the objects of interest are expressed
+as feature vectors in $\mathbb{R}^{n}$,
+we can use one of the well-known distance measures.
+Typical choices include the \emph{Euclidean distance}
+and \emph{Manhattan distance}.
+Euclidean distance between two vectors
+is the L2 norm of their difference.
+  \[\norm{\vect{a} - \vect{b}} =
+    \sqrt{\sum_{i=1}^{k} (a_{i} - b_{i})^{2}}
+  \]
+where, \vect{a} and \vect{b} are $d$-dimensional vectors.
+The Manhattan (or taxi-cab) distance between two feature vectors is
+the L1 norm of their difference.
+  \[\norm{\vect{a} - \vect{b}}_{1} =
+    \sum_{i=1}^{k} \lvert{}a_{i} - b_{i}\rvert
+  \]
+\begin{marginfigure}
+  \begin{center}
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{distance-metrics}
+    \begin{tikzpicture}
+      \draw[step=1cm,grid] (0,0) grid (4,4);
+      \draw[->,thick] (0, 0) -- (0, 4);
+      \node[anchor=west] at (0, 4) {y};
+      \draw[->,thick] (0, 0) -- (4, 0);
+      \node[anchor=south] at (4, 0) {x};
+
+      \node[red,fill=red,inner sep=0pt,draw,circle,minimum size=2pt]
+          (a) at (1,1) {};
+      \node[anchor=north east] at (a) {$\vect{a}$};
+      \node[red,fill=red,inner sep=0pt,draw,circle,minimum size=2pt]
+          (b) at (3,3) {};
+      \node[anchor=south west] at (b) {$\vect{b}$};
+
+      \draw[very thick,blue] (a) -- (b);
+      \draw[very thick,orange,dotted]
+        (a) -- (b |- a) -- (b);
+    \end{tikzpicture}
+  \end{center}
+  \caption{Visualization of Euclidean (solid blue line)
+    and Manhattan (dotted orange path) between two vectors
+    \vect{a} and \vect{b} in $\mathbb{R}^2$.
+  }
+\end{marginfigure}
+
+These are only two well-known distance measures defined
+on Euclidean (feature) space.
+Choice of distance measure (besides the choice of features)
+depends on the application.
+Different distance measures lead to different clusters.
+
+Some clustering algorithms only operate on distances.
+For these algorithms, we do not even need the explicit features.
+Distance measures can also be defined on objects
+without explicit definition of real-valued feature vectors.
+In linguistic applications it is common to define distance
+metrics over stings (e.g., words) and trees 
+(e.g., syntactic representations) directly.
+
+Formally, a \emph{distance metric} $D$ has to satisfy
+the following three properties:
+\begin{enumerate}
+  \item $D(a, b) = D(b, a)$ (symmetry) 
+  \item $D(a, b) \ge 0$ for all $a$, $b$ (non-negativity)
+  \item $D(a, b) + D(b, c) \ge D(a, c)$ (triangle inequality)
+\end{enumerate}
+
+\begin{marginfigure}
+  \begin{center}
+%    \tikzset{external/export next=false}
+    \tikzset{triangle/.style={fill=black,
+                             regular polygon,
+                             regular polygon sides=3,
+                             minimum size=0.8mm,
+                             inner sep=0pt,}
+    }
+    \tikzsetnextfilename{within-scatter}
+    \begin{tikzpicture}[scale=0.8]
+
+      \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->,thick] (0,0) -- (0,5) node[anchor=east] {$x_{2}$};
+      \foreach \x/\y/\c in 
+      {1.5/3/1, 1.5/4/2, 0.5/3.5/3, 2.5/3.5/4}
+      {%
+        \node[draw,
+              orange,
+              circle,
+              inner sep=0cm,
+              outer sep=0pt,
+              fill=orange,
+              minimum size=0.8mm] (c1-\c) at (\x,\y) {};
+      }
+      \foreach \x/\y/\c in 
+      {4/1/1, 3/1.5/2, 4/2/3}
+      {%
+        \node[draw,
+              blue,
+              triangle,
+              inner sep=0cm,
+              outer sep=0pt,
+              fill=blue,
+              minimum size=0.8mm] (c2-\c) at (\x,\y) {};
+      }
+
+      \foreach \x in {1,...,4}
+        \foreach \y in {2,...,4}
+        {
+          \draw[thin] (c1-\x) -- (c1-\y);
+        }
+      \foreach \x in {1,...,3}
+        \foreach \y in {2,...,3}
+        {
+          \draw[thin] (c2-\x) -- (c2-\y);
+        }
+%      \draw[step=5mm,gray!50,very thin] (0,0) grid (5,5);
+%        \draw[step=10mm,gray] (0,0) grid (5,5);
+    \end{tikzpicture}
+
+%    \tikzset{external/export next=false}
+    \tikzsetnextfilename{between-scatter}
+    \begin{tikzpicture}[scale=0.8]
+      \draw[->,thick] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->,thick] (0,0) -- (0,5) node[anchor=east] {$x_{2}$};
+      \foreach \x/\y/\c in 
+      {1.5/3/1, 1.5/4/2, 0.5/3.5/3, 2.5/3.5/4}
+      {%
+        \node[draw,
+              orange,
+              circle,
+              inner sep=0cm,
+              outer sep=0pt,
+              fill=orange,
+              minimum size=0.8mm] (c1-\c) at (\x,\y) {};
+      }
+      \foreach \x/\y/\c in 
+      {4/1/1, 3/1.5/2, 4/2/3}
+      {%
+        \node[draw,
+              blue,
+              triangle,
+              inner sep=0cm,
+              outer sep=0pt,
+              fill=blue,
+              minimum size=0.8mm] (c2-\c) at (\x,\y) {};
+      }
+      \foreach \x in {1,...,3}
+        \foreach \y in {1,...,4}
+        {
+          \draw[thin] (c2-\x) -- (c1-\y);
+        }
+%      \draw[step=5mm,gray!50,very thin] (0,0) grid (5,5);
+%        \draw[step=10mm,gray] (0,0) grid (5,5);
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:within-between-scatter}%
+    Two example clusters
+    (one shown as blue triangles, the other with orange dots),
+    and their within-cluster (above) and between cluster (below)
+    distances.}
+\end{marginfigure}
+
+Once a distance measure is defined on the objects of interest,
+most natural approach to clustering is trying to minimize
+the \emph{within-cluster scatter}, which is defined as
+\[
+  \sum_{k=1}^{K} \sum_{a \in C_{k}} \sum_{b \in C_{k}} D(a, b)
+\]
+where $K$ is the number of clusters and
+$C_{k}$ represents the set of data points that belong to the cluster $k$.
+Within cluster scatter measures the total distance between all
+data points which share the cluster assignment.
+A related measure is the \emph{between cluster scatter},
+which is the sum of all distances between all data points
+that are not assigned to the same cluster.
+Formally, Between cluster scatter is defined as 
+\[
+  \sum_{k=1}^{K} \sum_{a \in C_{k}} \sum_{b \not\in C_{k}} D(a, b) .
+\]
+Between- and within-cluster scatter is visualized
+in Figure~\ref{fig:within-between-scatter}
+using Euclidean distances on a 2-dimensional feature space ($\mathbb{R}^{2}$).
+
+Intuitively,
+we want the data points that belong to the same cluster
+to be closer to each other,
+while the clusters to be farther from each other.
+As a result, minimizing within-cluster scatter,
+and maximizing between-cluster scatter makes sense.
+You may also have already noticed that,
+minimizing one also means maximizing the other.
+They sum up to the total scatter in the data set,
+which is constant for a given data set.
+By minimizing within-cluster scatter,
+we automatically maximize the between-cluster scatter.
+
+There are two problems with a direct approach
+to minimizing within-cluster scatter
+for obtaining the best clustering configuration for a given data set.
+First, the lowest within-cluster scatter is obtained
+when each data point forms its own cluster.
+As a result, without a predefined number $K$ of clusters,
+the optimum solution (which puts each data point in its own cluster)
+is not useful.%
+\footnote{We will get back to the choice of number of clusters later.}
+
+The second problem is computational complexity.
+Enumerating all possible clustering configurations,
+and finding the configuration
+with the lowest within-cluster scatter is intractable
+for most realistic data sets.
+%TODO: verify/indicate the complexity \frac{k^{n}}{k!} \parencite[ch.10]{duda2000}
+
+Given the high computational complexity,
+all practical clustering methods opt for an approximate solution.
+There are two major approaches to clustering.
+One approach is to divide the features space into areas for each cluster.
+The other is to organize the objects hierarchically
+such that items that are most similar to each other are grouped together,
+and repeating the process recursively to obtain a hierarchical grouping.
+We will discuss the \emph{k-means} as an example of the 
+non-hierarchical clustering method,
+and hierarchical clustering in the remainder of this section.
+
+\subsection{K-means}
+
+K-means is a simple but effective  clustering algorithm.
+The algorithm requires real-valued feature vectors in $\mathbb{R}^d$
+as its input.%
+\footnote{Where, $d$ is the dimension of the feature vectors.}
+The number of clusters, $K$, is specified in advance.
+The algorithm finds the \emph{centroids}
+(the mid-point of a set of data points in $\mathbb{R}^d$)
+of each proposed cluster.
+A new data point is assigned to the cluster with the closest centroid.
+
+Formally $K$-means algorithm is an iterative algorithm.
+An informal description of the algorithm is given below.%
+\footnote{K-means algorithm is related to
+  the \emph{expectation-maximization algorithm} that we will discuss
+  later in this chapter.
+}
+
+\begin{enumerate}
+  \item Randomly choose \emph{centroids}, $m_{1}, \ldots, m_{K}$,
+    representing K clusters
+  \item Repeat until convergence
+    \begin{enumerate}
+      \item Assign each data point to the cluster of the nearest centroid
+      \item Re-calculate the centroid locations based on the assignments
+    \end{enumerate}
+\end{enumerate}
+%TODO: turn into a proper algorithm environment
+
+Typically, the algorithm terminates (converges) 
+when no cluster re-assignments are done in step 2a,
+or the centroids does not change in two successive iterations.
+Both criteria can be `softened'
+by allowing a small threshold for the relevant difference
+to prevent long convergence times.
+
+The k-means algorithm finds a \emph{local minimum} of the sum of
+squared Euclidean distance
+between the cluster center and points assigned to the cluster
+within each cluster
+\begin{equation}\label{eq:k-means-obj}
+  \sum_{k=1}^{K} \sum_{\vect{a} \in C_{k}} \norm{\vect{a} - \vect{\mu}_{k}}^{2}
+\end{equation}
+Note the resemblance of the inner sum to formulation of the variance
+from Section~\ref{ssec:variance-sd}.
+Effectively, we are looking for clusters with minimum variance.
+Furthermore, minimizing the distances of points in a cluster
+from their mean will also minimize the within-cluster scatter,
+distances between the data points within the same cluster.
+It should again be stressed that we are finding a local minimum,
+since it can be shown that the above objective is non-convex.
+%TODO: re-read, verify the above carefully
+
+\begin{figure*}
+  \tikzset{external/export next=false}
+%  \tikzsetnextfilename{k-means-demo}
+  \begin{tikzpicture}
+    \tikzset{triangle/.style={regular polygon,
+                              regular polygon sides=3,
+                              minimum size=2mm,
+                              inner sep=0pt,}
+    }
+    \tikzset{square/.style={regular polygon,
+                            regular polygon sides=4,
+                            minimum size=2mm,
+                            inner sep=0pt,}
+    }
+      \begin{groupplot}[%
+        group style={
+            group name=my plots,
+            group size=4 by 2,
+            xlabels at=edge bottom,
+            xticklabels at=edge bottom,
+            horizontal sep=5mm,
+            vertical sep=5mm,
+        },
+        ticklabel style={font=\tiny},
+        xlabel style={font=\scriptsize,
+           at=(current axis.south east), anchor=south},
+        ylabel style={font=\scriptsize,
+           at=(current axis.north west),
+           anchor=west, rotate=-90},
+        title style={yshift=-3ex,font=\scriptsize},
+        width=52mm, height=52mm,
+        xtick=\empty,
+        ytick=\empty,
+        xticklabels={,,},
+        yticklabels={,,},
+        axis lines=left,
+        xlabel={$x_{1}$},
+        ylabel={$x_{2}$},
+        scatter,
+        point meta=explicit symbolic,
+        xmin=0, ymin=0,
+        xmax=5, ymax=5,
+      ]
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={gray},%
+            red={gray},%
+            orange={gray}},
+        ] table[meta=col]{data/k-means.data};
+        \node[square,orange,draw] at (3.0,1.0) {};
+        \node[triangle,blue,draw] at (4.0,1.4) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (4.5,2.0) {};
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col1]{data/k-means.data};
+        \node[square,orange,draw] at (1.937468,2.243739) {};
+        \node[triangle,blue,draw] at (3.431291,2.094359) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (2.791514,3.363180) {};
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col2]{data/k-means.data};
+        \node[square,orange,draw] at (1.731005,1.999011) {};
+        \node[triangle,blue,draw] at (3.271922,2.092975) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (2.056410,3.728141) {};
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col3]{data/k-means.data};
+        \node[square,orange,draw] at (1.664607,1.544029) {};
+        \node[triangle,blue,draw] at (3.220937,2.081324) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (1.915253,3.420993) {};
+
+        %%% 
+        
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col1]{data/k-means.data};
+        \node[square,orange,draw] at (3.0,1.0) {};
+        \node[triangle,blue,draw] at (4.0,1.4) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (4.5,2.0) {};
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col2]{data/k-means.data};
+        \node[square,orange,draw] at (1.937468,2.243739) {};
+        \node[triangle,blue,draw] at (3.431291,2.094359) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (2.791514,3.363180) {};
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col3]{data/k-means.data};
+        \node[square,orange,draw] at (1.731005,1.999011) {};
+        \node[triangle,blue,draw] at (3.271922,2.092975) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (2.056410,3.728141) {};
+
+        \nextgroupplot
+        \addplot[
+          only marks,
+          mark size=1pt,
+          scatter/classes={%
+            blue={mark=triangle*,blue},%
+            red={mark=*,red},%
+            orange={mark=square*,orange}},
+        ] table[meta=col4]{data/k-means.data};
+        \node[square,orange,draw] at (1.664607,1.544029) {};
+        \node[triangle,blue,draw] at (3.220937,2.081324) {};
+        \node[circle,minimum size=2mm,inner sep=0,red,draw] at (1.915253,3.420993) {};
+
+      \end{groupplot}
+  \end{tikzpicture}
+  \caption{%
+    Demonstration of the k-means algorithm on the data
+    presented in Figure~\protect\ref{fig:clustering-data}.
+    The solid marks on the graphs represents the data points,
+    and large shapes represents the centroids of the clusters
+    shown with the same shape and color.
+    The first row corresponds to the step (a) in the algorithm,
+    the second row corresponds to the step (b).
+    Each column represents an iteration,
+    where the first column shows the random initialization of the centroids,
+    followed by the first cluster assignments.
+  }\label{fig:k-means-demo}
+\end{figure*}
+
+Figure~\ref{fig:k-means-demo} presents a demonstration
+of the k-means algorithm on the data set we have seen earlier
+in Figure~\ref{fig:clustering-data}~and~\ref{fig:clustering-data-solution}.
+Note that the algorithm starts with a random initialization
+of cluster centroids,
+as shown in the upper left panel of Figure~\ref{fig:k-means-demo}.
+The initialization affects the final outcome,
+different initializations may result in different clustering.
+A way to reduce the effects of initialization is
+to run the algorithm multiple times with different initializations,
+and pick the solution with the lowest squared error.
+Rather than randomly initializing the centroids as in our example,
+there are a number of `more informed' methods
+to assign initial cluster centroids.
+However, there is no single initialization method
+that works best in all applications.
+
+As seen in Figure~\ref{fig:k-means-demo},
+by successive assignment of the points to the clusters,
+and re-computing the cluster centroids,
+the algorithm converges to the intuitive solution
+in Figure~\ref{fig:clustering-data}.
+The iterations after the fourth iteration (not shown in the figure)
+does not change the cluster assignments.
+Note, however, the cluster labels do not match,
+with our `gold-standard' labels in Figure~\ref{fig:clustering-data-solution}
+since the labels are arbitrarily assigned.
+A different run of the algorithm may produce the same solution
+with different label assignments.
+Although this is obvious and expected from an unsupervised method,
+it affects the evaluation of the model.
+% (TODO: see Section..)
+
+One final note on the example in Figure~\ref{fig:k-means-demo} is
+that the type of data here is almost ideal for the k-means algorithm.
+K-means is known to perform well when clusters
+with approximately round-shaped (hyperspherical)
+and equal-sized clusters.%
+\footnote{Why?}
+
+One issue with k-means is that we need to specify the number of clusters $K$,
+in advance.
+For some problems this is not much of an issue,
+as the number of clusters are fixed in advance
+(for example, clustering news articles into a fixed set of topics).
+However, in most cases the best $K$ is not obvious.
+K-means objective (or within-cluster scatter) does not help us here either
+since the objective is minimum when $K$ is equal to the number of data points.
+A helpful method is to run the clustering multiple times with increasing $K$,
+and choose the point where the objective stops improving drastically.
+Figure~\ref{fig:k-means-scree} shows a plot,
+known as \emph{scree plot},
+where the values of the objective is plotted against the number of clusters.
+Note that the reduction of the error function improves significantly
+until $K=3$,
+after which improvement is very small compared to earlier steps.
+Although it may not be as clear as in Figure~\ref{fig:k-means-scree}
+in real data sets,
+the point that the error line forms an `elbow' in a scree plot
+is an indication of a good $K$ value.
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{k-means-scree}
+  \begin{tikzpicture}[x=4.5mm, y=6mm]
+    \draw[->,thick] (0.5,0) -- (10.5,0) node[anchor=north] {$K$};
+    \draw[->,thick] (0.5,0) -- (0.5,5) node[anchor=south west] {error};
+    \foreach \k/\J in {%
+      1/191.7905, 2/102.7845, 3/29.19468, 4/25.48522, 5/21.70109,
+      6/18.42174, 7/15.44576, 8/13.83276, 9/12.97512, 10/10.6505%
+    }{%
+      \node[circle, inner sep=0cm, outer sep=0pt, fill=blue, minimum size=1mm]
+        (n-\k) at (\k, 0.025*\J) {};
+		}
+    \foreach \k in {1, ..., 9} {
+      \pgfmathparse{int(\k+1)}
+      \xdef\prevk{\pgfmathresult};
+      \draw[thick] (n-\prevk) -- (n-\k);
+      \node[anchor=north,font=\footnotesize] at (\k, 0) {\k};
+    }
+%    \foreach \y in {1, ..., 4} {
+%      \pgfmathparse{int(\y*40)}
+%      \xdef\yy{\pgfmathresult};
+%      \node[anchor=east,font=\footnotesize] at (0, \y) {\yy};
+%    }
+  \end{tikzpicture}
+  \caption{\label{fig:k-means-scree}%
+    The scree plot for the data set in Figure~\protect\ref{fig:k-means-demo}.
+    The graph shows squared error (Equation~\ref{eq:k-means-obj})
+    after k-means algorithm has converged
+    for $K$ values between \num{1} and \num{10}.
+  }
+\end{marginfigure}
+
+The k-means algorithm we describe in this section is used in many fields.
+It also has a large number of variations.
+One variation that is worth mentioning here is the k-medoids algorithm,
+which reduces the within-cluster distances between the data points
+and the cluster \emph{medoid}, rather than cluster centroid.
+The cluster medoid, analogous to \emph{median},
+is always one of the data points,
+whose average distance to the other points in the cluster is minimal. 
+One of the advantages of k-medoids is
+that it can use any distance function
+(unlike Euclidean distance used by k-means).
+However,
+it is computationally more expensive than k-means.
+
+\subsection{Hierarchical clustering}
+
+The k-means clustering discussed above forms groups in a `flat' manner.
+Another approach to clustering is based on forming
+a hierarchical organization,
+such that the objects that are linked at a lower level
+and the objects (or clusters) with lower similarities are linked
+at higher levels of the hierarchy.
+The resulting hierarchy is most commonly shown as 
+a tree called \emph{dendrogram}
+as in the left panel of Figure~\ref{fig:hc-dendrogram}.
+A dendrogram shows the cluster hierarchy,
+and the height at which two items or clusters merge shows
+the distance between them.
+
+\begin{figure*}
+  \noindent
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{hc-dendrogram}
+  \begin{tikzpicture}[x=0.7pt,y=0.4pt]
+  % modified from R/tikzdevice output
+    \tikzset{leaf/.style={rotate=90,
+                          anchor=base east,
+                          inner sep=0,
+                          outer sep=0,
+                          font=\scriptsize,
+              }
+    }
+    \node[orange,leaf] at ( 67.25, 84.49) {12};
+    \node[orange,leaf] at ( 76.33, 84.49) {2};
+    \node[orange,leaf] at ( 85.41, 84.49) {15};
+    \node[orange,leaf] at ( 94.49, 84.49) {1};
+    \node[orange,leaf] at (103.57, 84.49) {9};
+    \node[orange,leaf] at (112.65, 84.49) {6};
+    \node[orange,leaf] at (121.73, 84.49) {11};
+    \node[orange,leaf] at (130.81, 84.49) {13};
+    \node[orange,leaf] at (139.89, 84.49) {7};
+    \node[orange,leaf] at (148.97, 84.49) {3};
+    \node[orange,leaf] at (158.05, 84.49) {8};
+    \node[orange,leaf] at (167.13, 84.49) {10};
+    \node[orange,leaf] at (176.21, 84.49) {14};
+    \node[orange,leaf] at (185.29, 84.49) {4};
+    \node[orange,leaf] at (194.37, 84.49) {5};
+
+    \node[red,leaf] at (203.45, 84.49) {31};
+    \node[red,leaf] at (212.53, 84.49) {42};
+    \node[red,leaf] at (221.61, 84.49) {34};
+    \node[red,leaf] at (230.69, 84.49) {38};
+    \node[red,leaf] at (239.77, 84.49) {32};
+    \node[red,leaf] at (248.85, 84.49) {36};
+    \node[red,leaf] at (257.93, 84.49) {44};
+    \node[red,leaf] at (267.01, 84.49) {45};
+    \node[red,leaf] at (276.09, 84.49) {43};
+    \node[red,leaf] at (285.17, 84.49) {37};
+    \node[red,leaf] at (294.25, 84.49) {39};
+    \node[red,leaf] at (303.33, 84.49) {33};
+    \node[red,leaf] at (312.41, 84.49) {41};
+    \node[blue,leaf] at (321.49, 84.49) {35};
+    \node[blue,leaf] at (330.57, 84.49) {40};
+
+    \node[blue,leaf] at (339.65, 84.49) {19};
+    \node[blue,leaf] at (348.73, 84.49) {16};
+    \node[blue,leaf] at (357.81, 84.49) {17};
+    \node[blue,leaf] at (366.89, 84.49) {23};
+    \node[blue,leaf] at (375.97, 84.49) {27};
+    \node[blue,leaf] at (385.05, 84.49) {22};
+    \node[blue,leaf] at (394.13, 84.49) {21};
+    \node[blue,leaf] at (403.21, 84.49) {26};
+    \node[blue,leaf] at (412.29, 84.49) {30};
+    \node[blue,leaf] at (421.37, 84.49) {18};
+    \node[blue,leaf] at (430.45, 84.49) {24};
+    \node[blue,leaf] at (439.53, 84.49) {20};
+    \node[blue,leaf] at (448.61, 84.49) {29};
+    \node[blue,leaf] at (457.69, 84.49) {25};
+    \node[blue,leaf] at (466.78, 84.49) {28};
+
+    \draw ( 74.26, 92.82) -- ( 74.26,107.25) --
+      ( 83.34,107.25) -- ( 83.34, 92.82);
+    \draw ( 65.18, 92.82) -- ( 65.18,122.95) --
+      ( 78.80,122.95) -- ( 78.80,107.25);
+    \draw ( 92.42, 92.82) -- ( 92.42,108.32) --
+      (101.50,108.32) -- (101.50, 92.82);
+    \draw (119.66, 92.82) -- (119.66,102.49) --
+      (128.74,102.49) -- (128.74, 92.82);
+    \draw (110.58, 92.82) -- (110.58,113.25) --
+      (124.20,113.25) -- (124.20,102.49);
+    \draw ( 96.96,108.32) -- ( 96.96,130.56) --
+      (117.39,130.56) -- (117.39,113.25);
+    \draw (146.90, 92.82) -- (146.90,107.65) --
+      (155.98,107.65) -- (155.98, 92.82);
+    \draw (137.82, 92.82) -- (137.82,137.83) --
+      (151.44,137.83) -- (151.44,107.65);
+    \draw (107.18,130.56) -- (107.18,157.91) --
+      (144.63,157.91) -- (144.63,137.83);
+    \draw ( 71.99,122.95) -- ( 71.99,179.34) --
+      (125.90,179.34) -- (125.90,157.91);
+    \draw (165.06, 92.82) -- (165.06,128.31) --
+      (174.14,128.31) -- (174.14, 92.82);
+    \draw (183.22, 92.82) -- (183.22,150.01) --
+      (192.30,150.01) -- (192.30, 92.82);
+    \draw (169.60,128.31) -- (169.60,208.95) --
+      (187.76,208.95) -- (187.76,150.01);
+    \draw ( 98.95,179.34) -- ( 98.95,228.04) --
+      (178.68,228.04) -- (178.68,208.95);
+    \draw (201.38, 92.82) -- (201.38,107.07) --
+      (210.46,107.07) -- (210.46, 92.82);
+    \draw (237.70, 92.82) -- (237.70,106.31) --
+      (246.78,106.31) -- (246.78, 92.82);
+    \draw (228.62, 92.82) -- (228.62,110.08) --
+      (242.24,110.08) -- (242.24,106.31);
+    \draw (219.54, 92.82) -- (219.54,132.25) --
+      (235.43,132.25) -- (235.43,110.08);
+    \draw (205.92,107.07) -- (205.92,142.46) --
+      (227.49,142.46) -- (227.49,132.25);
+    \draw (255.86, 92.82) -- (255.86,102.43) --
+      (264.95,102.43) -- (264.95, 92.82);
+    \draw (283.11, 92.82) -- (283.11,102.62) --
+      (292.19,102.62) -- (292.19, 92.82);
+    \draw (274.03, 92.82) -- (274.03,117.87) --
+      (287.65,117.87) -- (287.65,102.62);
+    \draw (301.27, 92.82) -- (301.27,117.90) --
+      (310.35,117.90) -- (310.35, 92.82);
+    \draw (280.84,117.87) -- (280.84,136.50) --
+      (305.81,136.50) -- (305.81,117.90);
+    \draw (260.40,102.43) -- (260.40,163.17) --
+      (293.32,163.17) -- (293.32,136.50);
+    \draw (216.71,142.46) -- (216.71,202.59) --
+      (276.86,202.59) -- (276.86,163.17);
+    \draw (319.43, 92.82) -- (319.43,112.70) --
+      (328.51,112.70) -- (328.51, 92.82);
+    \draw (346.67, 92.82) -- (346.67,101.87) --
+      (355.75,101.87) -- (355.75, 92.82);
+    \draw (337.59, 92.82) -- (337.59,132.30) --
+      (351.21,132.30) -- (351.21,101.87);
+    \draw (323.97,112.70) -- (323.97,164.85) --
+      (344.40,164.85) -- (344.40,132.30);
+    \draw (364.83, 92.82) -- (364.83,116.09) --
+      (373.91,116.09) -- (373.91, 92.82);
+    \draw (401.15, 92.82) -- (401.15,101.19) --
+      (410.23,101.19) -- (410.23, 92.82);
+    \draw (392.07, 92.82) -- (392.07,114.71) --
+      (405.69,114.71) -- (405.69,101.19);
+    \draw (382.99, 92.82) -- (382.99,137.81) --
+      (398.88,137.81) -- (398.88,114.71);
+    \draw (369.37,116.09) -- (369.37,180.08) --
+      (390.93,180.08) -- (390.93,137.81);
+    \draw (419.31, 92.82) -- (419.31,113.11) --
+      (428.39,113.11) -- (428.39, 92.82);
+    \draw (437.47, 92.82) -- (437.47,117.70) --
+      (446.55,117.70) -- (446.55, 92.82);
+    \draw (423.85,113.11) -- (423.85,134.10) --
+      (442.01,134.10) -- (442.01,117.70);
+    \draw (455.63, 92.82) -- (455.63,138.76) --
+      (464.71,138.76) -- (464.71, 92.82);
+    \draw (432.93,134.10) -- (432.93,194.50) --
+      (460.17,194.50) -- (460.17,138.76);
+    \draw (380.15,180.08) -- (380.15,261.93) --
+      (446.55,261.93) -- (446.55,194.50);
+    \draw (334.18,164.85) -- (334.18,268.52) --
+      (413.35,268.52) -- (413.35,261.93);
+    \draw (246.78,202.59) -- (246.78,380.93) --
+      (373.77,380.93) -- (373.77,268.52);
+    \draw (138.82,228.04) -- (138.82,442.04) --
+      (310.27,442.04) -- (310.27,380.93);
+
+    %y axis
+    \draw ( 49.20, 92.82) -- ( 49.20,456.69);
+    % tick marks
+    \draw ( 49.20, 92.82) -- ++( -4, 0);
+    \draw ( 49.20,141.52) -- ++( -4, 0);
+    \draw ( 49.20,190.22) -- ++( -4, 0);
+    \draw ( 49.20,238.92) -- ++( -4, 0);
+    \draw ( 49.20,287.61) -- ++( -4, 0);
+    \draw ( 49.20,336.31) -- ++( -4, 0);
+    \draw ( 49.20,385.01) -- ++( -4, 0);
+    \draw ( 49.20,433.71) -- ++( -4, 0);
+
+    \node at ( 34.80, 92.82) {0.0};
+    \node at ( 34.80,141.52) {0.5};
+    \node at ( 34.80,190.22) {1.0};
+    \node at ( 34.80,238.92) {1.5};
+    \node at ( 34.80,287.61) {2.0};
+    \node at ( 34.80,336.31) {2.5};
+    \node at ( 34.80,385.01) {3.0};
+    \node at ( 34.80,433.71) {3.5};
+  \end{tikzpicture}%
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{hc-goldsdt-ref}
+  \begin{tikzpicture}
+    \begin{axis}[
+        x=40, y=35,
+        xlabel={$x_{1}$},
+        ylabel={$x_{2}$},
+        axis lines=left,
+        xtick=\empty,
+        ytick=\empty,
+        xticklabels={,,},
+        yticklabels={,,},
+        xmin=0.2,
+        ymin=0,
+        nodes near coords,
+      ]
+      \addplot[
+        scatter,
+        only marks,
+        point meta={symbolic=\thisrow{col}},
+        nodes near coords=x,
+        mark size=1pt,
+        visualization depends on={\thisrow{id} \as \pointid},
+        nodes near coords={\tiny\pgfmathprintnumber[int trunc]{\pointid}},
+        scatter/classes*={%
+          blue={mark=triangle*,blue},%
+          red={mark=*,red},%
+          orange={mark=square*,orange}},
+      ] table {data/k-means.data};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{%
+    Example dendrogram (left) produced by hierarchical clustering
+    of the points on the left pane.
+    The data is the one we have used in demonstration of k-means
+    (first introduced in \protect\ref{fig:clustering-data-solution}).
+    On the left, we use the colors to represent original clustering
+    (based on the artificial data generation),
+    while the colors on the dendrogram reflect
+    the 3-way clustering suggested by the dendrogram.
+    We use numeric ids for cross-referencing
+    the data in two-dimensional feature space and the dendrogram.
+    The dendrogram is obtained by hierarchical agglomerative clustering
+    using Euclidean distances, and complete linkage.
+  }\label{fig:hc-dendrogram}
+\end{figure*}
+
+The actual clusters are determined based on `cutting' the dendrogram
+at a particular height. 
+For examples, cutting the dendrogram in Figure~\ref{fig:hc-dendrogram}
+at height \num{3.5} would yield two clusters,
+while cutting it at height \num{2.5} would yield a clustering close
+to the original three-clusters solution
+shown in the right panel of Figure~\ref{fig:hc-dendrogram}.
+You are recommended to study this figure carefully.
+
+The hierarchical clustering can be done bottom up,
+starting with each data point assigned to its own cluster,
+and merging the most-similar ones to obtain larger clusters at each step. 
+This type of clustering is called \emph{agglomerative} clustering.
+The other obvious method of hierarchical clustering,
+\emph{divisive} clustering,
+starts with a single cluster containing all data points,
+and splits the clusters until each data point is in its own cluster.
+The optimum solution, considering all possible splits/merges,
+is intractable for both divisive and agglomerative clustering.
+As a result, the methods in use in practice are greedy methods
+that often find a good solution, rather than the best solution.
+The methods known for agglomerative clustering are
+computationally more efficient and they are more popular.
+
+A typical agglomerative clustering algorithm can be
+described as follows:
+
+\begin{enumerate}
+  \item Compute the similarity/distance matrix
+  \item Assign each data point to its own cluster
+  \item Repeat until no clusters left to merge
+    \begin{itemize}
+      \item Pick two clusters that are most similar to each other
+      \item Merge them into a single cluster
+    \end{itemize}
+\end{enumerate}
+
+
+
+\begin{marginfigure}
+
+  \begin{tabular}{@{}c@{}c@{}}
+
+%  \tikzset{external/export next=false}
+    \tikzsetnextfilename{agglomerative-demo01}
+  \begin{tikzpicture}[on grid,font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw (0,0) -- (0,5);
+    \draw (0,0) -- +(-0.1, 0);
+    \foreach \x in {1, ..., 5} {%
+      \node (n\x) at (\x, 0) {$\x$};
+      \draw (0,\x) -- +(-0.1, 0);
+    }
+
+    % for alignment
+    \node[anchor=north] at (5,0)  {\phantom{$x_{1}$}};
+    \node[inner sep=0pt,anchor=south west] at (0,5)  {\phantom{$x_{2}$}};
+
+  \end{tikzpicture}&
+%  \tikzset{external/export next=false}%
+    \tikzsetnextfilename{agglomerative-demo02}
+  \begin{tikzpicture}[font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+    \node (n1) at (1, 1) {$1$};
+    \node (n2) at (3, 1) {$2$};
+    \node (n3) at (2, 2) {$3$};
+    \node (n4) at (4, 3) {$4$};
+    \node (n5) at (4, 4) {$5$};
+  \end{tikzpicture}\\
+
+%  \tikzset{external/export next=false}
+    \tikzsetnextfilename{agglomerative-demo03}
+  \begin{tikzpicture}[on grid,font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw (0,0) -- (0,5);
+    \draw (0,0) -- +(-0.1, 0);
+    \foreach \x in {1, ..., 5} {%
+      \node (n\x) at (\x, 0) {$\x$};
+      \draw (0,\x) -- +(-0.1, 0);
+    }
+
+    \draw (n4) --  ++(0, 1) -- ++(1, 0) -- (n5);
+      ++(-1.5, 0) -- (n1);
+
+    % for alignment
+    \node[anchor=north] at (5,0)  {\phantom{$x_{1}$}};
+    \node[inner sep=0pt,anchor=south west] at (0,5)  {\phantom{$x_{2}$}};
+
+  \end{tikzpicture}&
+%  \tikzset{external/export next=false}%
+    \tikzsetnextfilename{agglomerative-demo04}
+  \begin{tikzpicture}[font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+    \node (n1) at (1, 1) {$1$};
+    \node (n2) at (3, 1) {$2$};
+    \node (n3) at (2, 2) {$3$};
+    \node (n4) at (4, 3) {$4$};
+    \node (n5) at (4, 4) {$5$};
+
+    \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+  \end{tikzpicture}\\
+
+
+%  \tikzset{external/export next=false}
+    \tikzsetnextfilename{agglomerative-demo05}
+  \begin{tikzpicture}[on grid,font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw (0,0) -- (0,5);
+    \draw (0,0) -- +(-0.1, 0);
+    \foreach \x in {1, ..., 5} {%
+      \node (n\x) at (\x, 0) {$\x$};
+      \draw (0,\x) -- +(-0.1, 0);
+    }
+
+    \draw (n4) --  ++(0, 1) -- ++(1, 0) -- (n5);
+    \draw (n2) --  ++(0, 1.4142) -- ++(1, 0) -- (n3);
+      ++(-1.5, 0) -- (n1);
+
+    % for alignment
+    \node[anchor=north] at (5,0)  {\phantom{$x_{1}$}};
+    \node[inner sep=0pt,anchor=south west] at (0,5)  {\phantom{$x_{2}$}};
+
+  \end{tikzpicture}&
+%  \tikzset{external/export next=false}%
+    \tikzsetnextfilename{agglomerative-demo06}
+  \begin{tikzpicture}[font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+    \node (n1) at (1, 1) {$1$};
+    \node (n2) at (3, 1) {$2$};
+    \node (n3) at (2, 2) {$3$};
+    \node (n4) at (4, 3) {$4$};
+    \node (n5) at (4, 4) {$5$};
+
+    \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+    \draw (2.5,1.5) circle [x radius=0.5, y radius=1.2,rotate=45];
+  \end{tikzpicture}\\
+
+%  \tikzset{external/export next=false}
+    \tikzsetnextfilename{agglomerative-demo07}
+  \begin{tikzpicture}[on grid,font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw (0,0) -- (0,5);
+    \draw (0,0) -- +(-0.1, 0);
+    \foreach \x in {1, ..., 5} {%
+      \node (n\x) at (\x, 0) {$\x$};
+      \draw (0,\x) -- +(-0.1, 0);
+    }
+
+    \draw (n4) --  ++(0, 1) -- ++(1, 0) -- (n5);
+    \draw (n2) --  ++(0, 1.4142) -- ++(1, 0) -- (n3);
+    \draw ($(n2)!0.5!(n3) + (0,1.4142)$) --  ++(0, 2-1.4142) -- 
+      ++(-1.5, 0) -- (n1);
+
+    % for alignment
+    \node[anchor=north] at (5,0)  {\phantom{$x_{1}$}};
+    \node[inner sep=0pt,anchor=south west] at (0,5)  {\phantom{$x_{2}$}};
+
+  \end{tikzpicture}&
+%  \tikzset{external/export next=false}%
+    \tikzsetnextfilename{agglomerative-demo08}
+  \begin{tikzpicture}[font=\scriptsize,x=4mm,y=4mm]
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+    \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+    \node (n1) at (1, 1) {$1$};
+    \node (n2) at (3, 1) {$2$};
+    \node (n3) at (2, 2) {$3$};
+    \node (n4) at (4, 3) {$4$};
+    \node (n5) at (4, 4) {$5$};
+
+    \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+    \draw (2.5,1.5) circle [x radius=0.5, y radius=1.2,rotate=45];
+    \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+  \end{tikzpicture}\\
+
+%  \tikzset{external/export next=false}
+    \tikzsetnextfilename{agglomerative-demo09}
+  \begin{tikzpicture}[on grid,font=\scriptsize,x=4mm,y=4mm]
+    \draw (0,0) -- (0,5);
+    \draw (0,0) -- +(-0.1, 0);
+    \foreach \x in {1, ..., 5} {%
+      \node (n\x) at (\x, 0) {$\x$};
+      \draw (0,\x) -- +(-0.1, 0);
+    }
+
+    \draw (n4) --  ++(0, 1) -- ++(1, 0) -- (n5);
+    \draw (n2) --  ++(0, 1.4142) -- ++(1, 0) -- (n3);
+    \draw ($(n2)!0.5!(n3) + (0,1.4142)$) --  ++(0, 2-1.4142) -- 
+      ++(-1.5, 0) -- (n1);
+    \draw ($(n4)!0.5!(n5) + (0,1)$) --  ++(0, 4.2426-1) -- ++(-2.5, 0) -- (2,2);
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+
+    % for alignment
+    \node[anchor=north] at (5,0)  {\phantom{$x_{1}$}};
+    \node[inner sep=0pt,anchor=south west] at (0,5)  {\phantom{$x_{2}$}};
+
+  \end{tikzpicture}&
+%  \tikzset{external/export next=false}%
+    \tikzsetnextfilename{agglomerative-demo10}
+  \begin{tikzpicture}[font=\scriptsize,x=4mm,y=4mm]
+    \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+    \node (n1) at (1, 1) {$1$};
+    \node (n2) at (3, 1) {$2$};
+    \node (n3) at (2, 2) {$3$};
+    \node (n4) at (4, 3) {$4$};
+    \node (n5) at (4, 4) {$5$};
+
+    \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+    \draw (2.5,1.5) circle [x radius=0.5, y radius=1.2,rotate=45];
+    \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+    \draw (2.6,2.4) circle [x radius=2, y radius=2.7,rotate=-40];
+
+    \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+  \end{tikzpicture}\\
+  \end{tabular}
+  \caption{\label{fig:agglomerative}%
+    Step-by-step demonstration of agglomerative clustering.
+    Each row shows a successive step in the procedure.
+    The right side shows the dendrogram at each step,
+    while the left side shows the data points in $\mathbb{R}^2$\
+    alongside the clusters formed at each step.
+  }
+\end{marginfigure}
+
+Figure~\ref{fig:agglomerative} shows a step-by-step demonstration
+of agglomerative clustering of five points in two-dimensional Euclidean space.
+We start with assigning each point to its own cluster.
+Then we find the closest two points,
+which turns out to be the data points labeled $4$ and $5$,
+then we go on merging $2$ and $3$,
+then merge $1$ with the cluster formed by $2$ and $3$,
+and finally merge remaining two clusters together.
+It is also important to note that most hierarchical clustering algorithms
+operate on a distance matrix,
+rather than the feature vectors.
+This is sometimes convenient when there is a well-known distance function
+that does not depend on explicit features,
+such as Levenshtein distance between two strings.
+Since a distance matrix is a symmetric
+(more specifically positive semidefinite) with all \num{0} values
+at the main diagonal,
+the algorithm only uses part of it,
+typically a lower triangular matrix as in Figure~\ref{fig:dist-matrix}.
+\begin{marginfigure}
+  \begin{center}
+  \sisetup{table-format=1.2,%
+           table-align-exponent=false,%
+           table-align-uncertainty=false%
+  }
+    \begin{tabular}{lSSSS}
+      &        {1}&        {2}&        {3}&        {4}\\
+      1&         &         &         &         \\
+      2& 2.000000&         &         &         \\
+      3& 1.414214& 1.414214&         &         \\
+      4& 3.605551& 2.236068& 2.236068&         \\
+      5& 4.242641& 3.162278& 2.828427& 1.000000\\
+    \end{tabular}
+  \end{center}
+  \caption{\label{fig:dist-matrix}%
+    The distance matrix used as input to the demonstration
+    in Figure~\ref{fig:agglomerative}
+    (using Euclidean distances).
+    We do not need to specify the upper triangular part as
+    the matrix is symmetric, and the diagonal entries are all \num{0}.
+  }
+\end{marginfigure}
+
+Although we have discussed
+various options for distance measures between two objects
+in this lecture, 
+note that determining the distance between a cluster and a data point
+(step \num{3} of Figure~\ref{fig:agglomerative}),
+and determining the distance between two clusters
+(step \num{4} of Figure~\ref{fig:agglomerative})
+are non-trivial decisions.
+
+There is a relatively large number of choices
+for measuring inter-cluster distances.
+The choice affects the computational complexity as well as
+the final clustering yielded by the clustering algorithm.
+The methods of measuring
+the distances between the clusters are known as \emph{linkage}
+in the literature.
+The common linkage methods include the following.
+\begin{description}
+  \item[Single] linkage uses the minimal distance
+    between two clusters as their distance.
+    This method is related to the \emph{minimum spanning tree} algorithm,
+    and tends to form long linkage of `thin' clusters.
+    Successively linked objects are closer to each other.
+    However, objects at the opposite ends of the link may be farther
+    apart from each other compared to the objects in other clusters.
+  \item[Complete] linkage uses the maximal distance
+    between two clusters as their distance.
+    Complete linkage typically finds clusters of similar size,
+    avoiding the long chains of similarities of single linkage.
+  \item[Average] linkage uses the average of
+    all inter-cluster distances.
+  \item[Centroid] method uses the distance between the cluster centroids.
+  \item[Ward's] method is another popular method
+    for determining cluster differences.
+    The general idea with the Ward's method is to choose
+    the merge with the lowest within-cluster scatter (or variance).
+    Remember that the clustering configuration with the lowest 
+    within-cluster scatter is one where each object is assigned its own cluster.
+    Each merge during agglomerative clustering increases
+    the within-cluster scatter.
+    Then, we use the increase in the within-cluster variance incurred
+    by merging two cluster as the distance between the clusters.
+    This method, tends to yield more spherical equal-sized clusters
+    (like k-means).
+    Also note that although Ward's method often refers to an objective
+    based on within-cluster variance,
+    in practice one can use any other objective function
+    that may improve clustering and/or that may be computationally convenient.
+\end{description}
+
+A schematic description of these linkage methods are demonstrated
+in Figure~\ref{fig:linkage}.
+%TODO: example dendrograms for linkage methods
+There are more linkage options than the ones listed above.
+Most other linkage methods result in cluster configurations in-between
+single and complete linkage methods.
+In general, however, there is no single-best option.
+The choice of the linkage method is ultimately data and application dependent.
+
+\begin{marginfigure}
+  \begin{center}
+%    \tikzset{external/export next=false}%
+    \tikzsetnextfilename{linkage-single}
+    \begin{tikzpicture}[font=\scriptsize,x=6mm,y=6mm]
+      \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+      \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+      \node[inner sep=0pt] (n1) at (1, 1) {$1$};
+      \node[inner sep=0pt] (n2) at (3, 1) {$2$};
+      \node[inner sep=0pt] (n3) at (2, 2) {$3$};
+      \node[inner sep=0pt] (n4) at (4, 3) {$4$};
+      \node[inner sep=0pt] (n5) at (4, 4) {$5$};
+      \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+      \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+
+      \draw[blue,thick] (n3) -- (n4);
+      \node[anchor=south] at (2.5,5) {single};
+    \end{tikzpicture}
+
+%    \tikzset{external/export next=false}%
+    \tikzsetnextfilename{linkage-complete}
+    \begin{tikzpicture}[font=\scriptsize,x=6mm,y=6mm]
+      \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+      \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+      \node[inner sep=0pt] (n1) at (1, 1) {$1$};
+      \node[inner sep=0pt] (n2) at (3, 1) {$2$};
+      \node[inner sep=0pt] (n3) at (2, 2) {$3$};
+      \node[inner sep=0pt] (n4) at (4, 3) {$4$};
+      \node[inner sep=0pt] (n5) at (4, 4) {$5$};
+      \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+      \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+
+      \draw[blue,thick] (n1) -- (n5);
+      \node[anchor=south] at (2.5,5) {complete};
+    \end{tikzpicture}
+
+%    \tikzset{external/export next=false}%
+    \tikzsetnextfilename{linkage-average}
+    \begin{tikzpicture}[font=\scriptsize,x=6mm,y=6mm]
+      \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+      \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+      \node[inner sep=0pt] (n1) at (1, 1) {$1$};
+      \node[inner sep=0pt] (n2) at (3, 1) {$2$};
+      \node[inner sep=0pt] (n3) at (2, 2) {$3$};
+      \node[inner sep=0pt] (n4) at (4, 3) {$4$};
+      \node[inner sep=0pt] (n5) at (4, 4) {$5$};
+      \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+      \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+
+      \foreach \x in {1, ..., 3}{%
+        \foreach \y in {4, 5}{%
+            \draw[blue,thick] (n\x) -- (n\y);
+        }
+      }
+      \node[anchor=south] at (2.5,5) {average};
+    \end{tikzpicture}
+
+%    \tikzset{external/export next=false}%
+    \tikzsetnextfilename{linkage-centroid}
+    \begin{tikzpicture}[font=\scriptsize,x=6mm,y=6mm]
+      \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+      \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+      \node[inner sep=0pt] (n1) at (1, 1) {$1$};
+      \node[inner sep=0pt] (n2) at (3, 1) {$2$};
+      \node[inner sep=0pt] (n3) at (2, 2) {$3$};
+      \node[inner sep=0pt] (n4) at (4, 3) {$4$};
+      \node[inner sep=0pt] (n5) at (4, 4) {$5$};
+      \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+      \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+
+      \draw[blue,thick] ($ 1/3*($(n1)+(n2)+(n3)$) $) -- ($ (n4)!0.5!(n5) $);
+
+      \node[anchor=south] at (2.5,5) {centroid};
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:linkage}%
+    Single, complete, average and centroid linkage options.
+  }
+\end{marginfigure}
+
+Note that single, complete and average linkage methods would work
+on distances,
+without need to access feature vectors in $\mathbb{R}^n$.
+This may be useful in tasks where some intuitive distance (of difference)
+can be defined between the objects,
+but the features are not accessible
+or definition of a centroid does not make sense.
+In computational/quantitative linguistics research,
+it is commonplace to use such distances.
+For example using Levenshtein distance between words.
+%question: can you tell which linkage method is used in Figure~\ref{fig:agglomerative}?
+Another interesting property of these three linkage methods is that
+the distances in higher levels of cluster hierarchy never decreases.
+As a result the dendrograms obtained are proper dendrograms.
+
+%TODO: clustering random data by different algorithms
+
+\subsection{Evaluating clustering results}
+
+Evaluation is often problematic for unsupervised methods.
+Unlike in their supervised counterparts,
+we do not typically have gold-standard labels
+(if we had them we would use classification).
+However, we often want to have an objective way
+for comparing clustering results.
+Although none of them are without problems,
+there are a number of major methods
+for obtaining evaluation metrics for clustering.
+
+\newthought{Internal evaluation metrics}
+to calculate a statistic, a measure,
+based only on the clustering result.
+Although there exists a number of different formulations,
+all of the internal evaluation metrics indicate
+some sort of clustering consistency.
+That is, we want cluster configurations where
+the distances within the clusters are low,
+and the distances between the clusters are high.
+If you realized the similarity of this statement
+with the similarity of the clustering objectives (e.g., of k-means)
+repeated multiple times above,
+you have also realized the problem.
+This type of evaluation will be biased
+towards the clustering methods that use similar objectives.
+
+There are a number of measures
+that are the variations of the same idea above,
+including \emph{Davies–Bouldin index}, \emph{Dunn index},
+\emph{silhouette coefficient},
+and \emph{gap statistics}.
+These internal evaluation measures are also
+useful for selecting the ideal number of clusters.
+That is,
+we choose the $k$ value that maximizes the evaluation metric of choice.
+Unlike within-cluster scatter,
+these metrics do not always increase (or decrease) as $k$ is increased.
+Hence, to determine the best $k$ value,
+we may apply the clustering algorithm multiple times with varying $k$,
+and pick the one with the best evaluation metric (e.g., gap statistic).
+However, maximizing/minimizing the statistic does not always result in
+the best clustering,
+and one often needs to resort visual aids like scree plots
+(Figure~\ref{fig:k-means-scree})
+for making the optimal choice.
+
+\begin{marginfigure}
+  \begin{center}
+%    \tikzset{external/export next=false}%
+    \tikzsetnextfilename{silhouette}
+    \begin{tikzpicture}[font=\scriptsize,x=6mm,y=6mm]
+      \draw[opacity=0.1,step=1,gray,thin] (0,0) grid (5,5);
+      \draw[->] (0,0) -- (5,0) node[anchor=north] {$x_{1}$};
+      \draw[->] (0,0) -- (0,5) node[inner sep=0pt,anchor=south west] {$x_{2}$};
+
+      \node[inner sep=0pt] (n1) at (1, 1) {$1$};
+      \node[inner sep=0pt] (n2) at (3, 1) {$2$};
+      \node[inner sep=0pt] (n3) at (2, 2) {$3$};
+      \node[inner sep=0pt] (n4) at (4, 3) {$4$};
+      \node[inner sep=0pt] (n5) at (4, 4) {$5$};
+      \draw (4,3.5) circle [x radius=0.4, y radius=0.9];
+      \draw (2,1.5) circle [x radius=1.7, y radius=1.3];
+
+      \foreach \y in {1, ..., 3}{%
+          \draw[red,thick] (n3) -- (n\y);
+      }
+      \foreach \y in {4, 5}{%
+          \draw[blue,thick] (n3) -- (n\y);
+      }
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:silhouette}%
+    A schematic description of the silhouette metric.
+    The metric tries to maximize the average distance of each data point
+    (the data point labeled \num{3} in this example)
+    to nearest cluster that it does not belong to (blue lines),
+    and maximize the average distance of the data point to the others
+    in the same cluster (red lines).
+  }
+\end{marginfigure}
+For the sake of a concrete example,
+we will discuss the silhouette coefficient briefly here.
+The silhouette of a data point is defined as
+\[
+  s_{i} = \frac{b(i) - a(i)}{\max(a(i), b(i))}
+\]
+where $a(i)$ is the average distance
+between the object $i$ to the other objects in the same cluster,
+and $b(i)$ is the average distance
+between the object $i$ and the objects in the closest cluster.
+The resulting index value ranges in the interval $[-1, 1]$.
+A negative value means the data point is closer to a neighboring cluster
+rather than its own cluster,
+zero indicates a data point on the border,
+while a positive value indicates a data point closer to its own cluster
+compared to others.
+The average silhouette value over all data points indicate
+the quality of clustering,
+where larger numbers indicate better clustering configurations.
+Although,
+the preferred clustering configurations depends on the distance metric
+(and the way the objects are represented),
+the metric prefers compact clusters that are well-separated
+from the neighboring clusters.
+Sometimes silhouette score is used for selecting
+the optimum number of clusters.
+A configuration (number of clusters) that result in no (or least number of)
+negative silhouette scores is preferred over the other configurations.
+Also note that,
+like any other internal metric, 
+we could use average $s_{i}$ as the objective to maximize during clustering.
+The only reason for not having a wide-spread method based on maximizing
+the average silhouette score is 
+that there is no known way to maximize it efficiently.
+
+%TODO: Cophenetic correlation (?)
+
+\newthought{External evaluation methods} depend on a gold-standard test set.
+We may not have enough labeled data for training a classifier.
+However, if we have labeled test data,
+an external evaluation metric gives a direct comparison
+with the intended classes.
+The comparison of the labels, however, is not straightforward.
+Since the label assignments to clustering results are arbitrary,
+we cannot match them directly with gold-standard class labels.
+
+Almost all external cluster evaluation metrics rely on
+a version of two properties.%
+\sidenote{See the notes at the end of the chapter for pointers to
+  more clustering evaluation measures measures,
+  and other criteria for desirable clustering configuration.
+}
+First,
+we want each cluster to be composed of
+members of a single gold-standard class.  
+Second,
+we want all members of a gold-standard class to be assigned to 
+a single cluster.
+The first property, \emph{homogeneity}, has the trivial solution of
+assigning all data points to their own clusters.
+Similarly,
+the second property, \emph{completeness},
+can trivially be obtained by assigning a data points to a single cluster.
+Homogeneity is similar to precision,
+and completeness is similar to recall.%
+\sidenote{Not surprisingly, 
+  the term completeness is used for the same quantity as
+  recall in some disciplines.
+}
+However,
+we do not need to have matching labels
+in the clustering solution to calculate the homogeneity and completeness scores.
+Also note that, similar to precision and recall,
+increasing one will likely to decrease the other.
+
+Homogeneity and completeness can be quantified in a number of different ways.
+One popular way to define these quantities is based on entropy.
+Given a clustering solution $K$,
+and gold standard classes $C$,
+we can quantify homogeneity ($h$) and completeness ($c$) as
+\[
+  h =  \begin{cases}
+    1 & \text{if } H(C,K) = 0 \\
+    1 - \frac{H(C\given{}K)}{H(C)} & \text{otherwise}\\
+  \end{cases}\quad
+  c =  \begin{cases}
+    1 & \text{if } H(C,K) = 0 \\
+    1 - \frac{H(K\given{}C)}{H(K)} & \text{otherwise}\\
+  \end{cases}
+\]
+
+Remember that conditional entropy, $H(x\given{}y)$, is equal to
+the entropy of $x$ if $y$ does not provide any information about $x$.
+Otherwise, $H(x|y)$ is smaller than $H(x)$.
+Hence, both $h$ and $c$ range between $[0,1]$.
+High values of $h$ can be obtained
+when we can predict the gold-standard classes from the clusters,
+which is possible when each cluster is dominated
+by the members of a single class.
+So, once we know the cluster,
+we can tell with high certainty which class it belongs to.
+High values of $c$ are obtained when gold-standard classes can be 
+mapped to clustering solution without loss.
+Having multiple clusters for a single class will reduce the $c$ value.
+
+If we treat the clustering solution and the gold standard classes
+as categorical distributions over the clustered objects,
+estimate the necessary probability values using MLE,
+the calculation of the (conditional) entropy values above are simple.
+
+Now we can define a measure analogous to F-measure,
+which is called \emph{V-measure} as,
+
+\[
+  \text{V-measure} = \frac{2\times{}h\times{}c}{h+c}
+\]
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{v-measure}
+    \tikzset{%
+      xx/.style={inner sep=0pt, outer sep=0pt, minimum size=4mm,},
+      xt/.style={xx, regular polygon,regular polygon sides=3,},
+      xr/.style={xx, rectangle, minimum size=3mm},
+      xd/.style={xx, diamond, fill=gray},
+    }
+  \begin{tikzpicture}[%
+    ]
+    \draw[rounded corners] (0.5,0.5) rectangle (1.5,4.5);
+    \draw[rounded corners] (2.5,0.5) rectangle (3.5,4.5);
+    \draw[rounded corners] (4.5,0.5) rectangle (5.5,4.5);
+    \node[red,font=\footnotesize,anchor=south] at (1,4.5) {Cluster 1};
+    \node[xr,fill=red] at (1,1) {};
+    \node[xt,fill=red] at (1,2) {};
+    \node[xt,fill=red] at (1,3) {};
+    \node[xt,fill=red] at (1,4) {};
+    \node[blue,font=\footnotesize,anchor=south] at (3,4.5) {Cluster 2};
+    \node[xr,fill=blue] at (3,1) {};
+    \node[xr,fill=blue] at (3,2) {};
+    \node[xr,fill=blue] at (3,3) {};
+    \node[xr,fill=blue] at (3,4) {};
+    \node[gray,font=\footnotesize,anchor=south] at (5,4.5) {Cluster 3};
+    \node[xr,fill=gray] at (5,1) {};
+    \node[xr,fill=gray] at (5,2) {};
+    \node[xd,fill=gray] at (5,3) {};
+    \node[xd,fill=gray] at (5,4) {};
+  \end{tikzpicture}
+  \caption{\label{fig:v-measure}%
+    An example clustering solution with gold-standard labels
+    (represented as shapes).
+    Cluster 2 is pure, or fully homogeneous.
+    The label represented by triangle is completely contained in cluster 1.
+    The actual calculations of homogeneity, completeness and V-measure
+    scores are left as an exercise.
+  }
+\end{marginfigure}
+
+%\begin{question}
+%  Calculate the homogeneity, completeness and V-measure for the
+%  clustering solution presented in Figure~\ref{fig:v-measure}.
+%\end{question}
+
+There are quite a few other measures of external cluster evaluation,
+that we will not discuss here.
+Interested readers can find a few pointers to relevant literature
+at the end of the chapter.
+
+\newthought{Evaluation based on an external task} is another option.
+The clustering is often used as a means to improve a particular system.
+For example,
+if we are using clusters of words as features for a classifier,
+e.g., parser actions during parsing,
+the improvement in parsing, then, can be used as the evaluation metric
+for the clustering results.
+Although this is not always applicable,
+if our aim is to improve a task using clustering,
+it is the naturally the best evaluation metric.
+
+\newthought{Human judgments}, although subjective,
+are sometimes the only option,
+and can be useful even if one uses one of the more objective approaches
+outlined above.
+We should not dismiss the use of human evaluation.
+Aided with visualizations,
+human evaluation is often useful
+(or insightful, since getting insights about data is
+one of the reason for using unsupervised methods).
+
+\section{Density estimation}
+
+%TODO: visualization of membership assignment
+% (maybe similar to https://en.wikipedia.org/wiki/Fuzzy_clustering)
+The clustering algorithms we discussed above assume that
+each data point belongs to only one cluster.
+For many problems this is appropriate and/or desirable.
+For some applications,
+it makes more sense to assign objects to multiple clusters.
+For example, while clustering news articles into topics,
+we may want to let the system to label an article belonging both
+`economics', `politics' and maybe more groups.
+In other cases,
+even though ultimate aim is to assign each object to a single group,
+we may want to have a more `softer' membership decision,
+so that more typical members of a group get
+higher membership score/status.
+
+There are a number of \emph{soft} or \emph{fuzzy} versions of
+the clustering algorithms we discussed above,
+particularly of k-means.
+A typical approach is to weigh the membership of each object
+based on their distance from the centroid.
+For hierarchical clustering methods,
+a statistical/soft clustering can be obtained using bootstrap,
+or doing multiple clustering experiments with added noise.
+Rather than reviewing these methods,
+we will go through a more principled approach, \emph{density estimation}, below.
+
+In density estimation,
+we assume that the data at hand is generated from a number of
+(parametric) probability density functions.
+The task is, then,
+finding the parameters of the probability distribution(s) given the data.
+Once the parameters of the underlying probability distributions are estimated,
+likelihood of the parameters given each data point can be calculated
+based on the estimated probability density or probability mass function.%
+\sidenote[][-5cm]{%
+  The likelihood of parameter(s), \vect{\theta}, of a model,
+  such as a probability distribution,
+  given data \vect{x} is,
+  \[
+    \mathcal{L}(\vect{\theta}\given\vect{x}) = p(\vect{x}\given\vect{\theta})
+  \]
+  where $p(\cdot)$ is the value of 
+  \emph{probability mass function} PMF for a discrete distribution,
+  and \emph{probability density function} (PDF)
+  for a continuous distribution.
+
+  Remember that a discrete probability distribution can be characterized
+  by a PMF that returns probabilities.
+  Continuous variables are characterized by a PDF whose values are
+  arbitrary non-negative real numbers (not probability values).
+}
+As a result, we can quantify the degree of membership to
+one of the distributions (or clusters).
+A hard cluster membership decision can be made
+by simply choosing distribution which assigns the highest likelihood to
+the each point in question.
+
+A popular instance of mixture models assume that
+the underlying distributions are 
+normal (Gaussian) distributions,
+and resulting models are known as \emph{mixtures of Gaussians}
+or \emph{Gaussian mixtures}.
+In principle, however,
+there is no reason to limit the density estimation to Gaussian distributions,
+and examples of other distributions,
+such as categorical or multinomial distributions are common
+in computational linguistics literature.
+
+As in clustering,
+finding the optimum parameters is intractable
+for most applications of density estimation.
+As a result,
+we often opt for a solution that finds a local optimum.
+Below, we will briefly describe
+the \emph{expectation-maximization} (EM) algorithm.
+The EM algorithm is a very well-studied and popular iterative algorithm
+for solving learning problems involving latent, or unobserved, variables.
+In density estimation, the latent variables are
+the parameters of the hypothesized probability densities. 
+We will study an arguably more principled approach,
+probabilistic models, in the next chapter.
+
+A general sketch of the EM algorithm is given below.
+As described below,
+the EM is a family of algorithms.
+A concrete algorithm can be formed based on the particular application,
+and the choice of the model (the number and type of the distributions).
+
+\begin{enumerate}
+  \item Initialize the parameters (e.g., randomly)
+    of $K$ multivariate normal distributions ($\vect{\mu}, \vect{\Sigma}$)
+  \item Iterate until convergence:
+    \begin{itemize}
+      \item[E-step] Given the parameters,
+        compute the membership `weights'
+        (sometimes called \emph{responsibilities}),
+        the likelihood of each data point belonging to
+        each hypothesized distribution
+      \item[M-step] Re-estimate the mixture density parameters
+        using the calculated membership weights in the E-step
+    \end{itemize}
+\end{enumerate}
+
+Note that the algorithm is very similar to
+the k-means algorithm described above.
+In fact, if we choose our mixture densities to be $K$ Gaussian distributions,
+we get a soft version of the k-means algorithm.
+
+Below, we will go through a very simple example
+for the purposes of understanding the density estimation and the EM algorithm.
+We will assume that our data comes from \num{2} normal distributions
+with a known variance but different means $\mu_{1}$ and $\mu_{2}$.
+Hence, estimating $\mu_{1}$ and $\mu_{2}$ allows as to characterize
+the underlying distributions.
+However, we need one more parameter, $\alpha$, for specifying
+the ratio of the data points generated from the first distribution
+(the distribution with mean $\mu_{1}$).%
+\sidenote[][-5cm]{%
+  Note, again, that we are making these simplifications to aid understanding.
+  The EM algorithm can be used for more complex problems.
+  The method we will describe here can easily be adapted to more than 
+  \num{2} distributions.
+  This requires estimating parameters (e.g., $\mu$) for more distributions,
+  and instead of using a scalar $\alpha$,
+  we employ vector, $\vect{\alpha}$,
+  whose components specifying the proportion of data points
+  generated from each distribution (hence, $\sum_{i} \alpha_{i} = 1$).
+  Similarly, we can generalize the algorithm to
+  multivariate Gaussian distributions
+  by allowing $\mu_{i}$ to be vectors in a higher dimensional space.
+  There is also no reason (other than simplicity) for having a fixed variance,
+  we can estimate the variances of each distribution,
+  as well as modeling covariances.
+}
+From a Bayesian point of view,
+the parameter $\alpha$ can be thought as the prior probability
+of a point belonging to the first distribution.
+
+In this simplified example,
+the parameters we want to estimate are $\mu_{1}$, $\mu_{2}$, and $\alpha$.
+We will collectively call these parameters $\vect{\theta}$.
+In other words, the parameters of interest is the vector
+$\vect{\theta} = (\mu_{1}, \mu_{2}, \alpha)$.
+
+The EM algorithm starts with initializing the parameters.
+Typically, the initialization is done randomly, 
+but as in k-means,
+`more informed' initialization methods exist.
+
+In the E-step,
+for every data point $x_{i}$,
+we calculate the membership weights,
+that is $p(k=1\given x_{i}\theta)$ and $p(k=2\given x_{i}\theta)$,
+where we use the notation $k=1$ to indicate
+that the data point belongs to the distribution with mean $\mu_{1}$.
+For $n$ data points,
+the membership weights can be represented by a $n\times{}2$ matrix $A$,
+such that $a_{i,k}$ indicates
+the membership weight of $i^{\text{th}}$ data point
+being generated from the $k^{\text{th}}$ distribution.
+We can calculate $a_{i,1}$, using
+
+\[
+  a_{i,1} = p(k=1\given x_{i},\theta) =
+            \frac{\alpha p(x_{i}\given{}k=1, \mu_{1})}%
+              {\alpha p(x_{i}\given{}k=1, \mu_{1}) +
+                    (1-\alpha) p(x_{i}\given{}k=2, \mu_{2})}
+\]
+where $p(x_{i}\given{}k=1, \mu_{1})$ is simply calculated using
+the normal PDF.%
+\footnote{With known variance $\sigma$,
+  \[p(x_{i}\given{}k=1, \mu_{1}) = 
+    \frac{e^{-\frac{(x_{i}-\mu_{1})^{2}}{2\sigma^{2}}}}%
+         {\sigma\sqrt{2\pi}}
+  \]
+}
+The membership weights
+for the distribution with mean $\mu_{2}$,
+follows from the same equation.
+However, since we have only two classes, 
+we can simply calculate it by subtracting
+the corresponding weight for the first distribution
+from one ($a_{i,2} = 1 - a_{i,1}$).
+
+In the M-step,
+assuming that the membership assignments are correct,
+we re-estimate the parameters based on the membership weights
+calculated in the E-step.
+The mixture parameter $\alpha$ can be calculated by dividing
+the weighted counts ($n_{1}$) of the first distribution membership weights
+to the total number of data points.
+\[
+  \alpha^{\text{new}} = \frac{n_{1}}{n}
+              % = \frac{\sum_{i=1}^{n} a_{i,1}}%
+              %{\sum_{i=1}^{n} a_{i,1} + \sum_{i=1}^{n} a_{i,2}}
+\]
+where $n_{1} = \sum_{i=1}^{n} a_{i,1}$.
+The weighted count for the second distribution can be calculated similarly,
+or by simply $n_{2} = n - n_{1}$.
+The means of the distributions are also estimated similarly,
+as a weighted average of each data point.
+\[
+  \mu_{1}^{\text{new}} = \frac{1}{n_{1}} \sum_{i=1}^{n} a_{i,1} x_{i}
+\]
+
+Now, we have new values for each member of  \vect{\theta},
+we can return to E-step recalculating
+the membership weight matrix $\vect{A}$.
+The algorithm alternates between E and M steps
+until a defined convergence criterion is reached.
+The convergence criterion is typically based on log-likelihood of the data.
+We observe the likelihood at each iteration,
+and stop when it does not improve (more than a defined threshold).
+The log-likelihood is the logarithm of the likelihood of the data,
+under the model assumptions.
+Assuming that the data points are conditionally independent given the model,
+likelihood of the model parameters can be computed as 
+\[
+  \mathcal{L}(\vect{\theta}\given{}\vect{x}) =
+            p(\vect{x}\given\vect{\theta})
+            \sum_{i=1}^{n} \alpha  p(x_{i} \given{}k=1, \mu_{1}) + 
+              (1-\alpha) p(x_{i} \given{}k=2, \mu_{2})
+\]
+as before, $p(x_{i} \given{}k=1, \mu_{1})$
+and $p(x_{i} \given{}k=2, \mu_{2})$
+is calculated by plugging relevant $x$, $\mu$ and
+the fixed-known $\sigma$ into the normal PDF function.%
+\footnote{Remember that because of computational reasons,
+  we work with logarithm of the likelihood in practice.
+}
+
+As noted above,
+the EM algorithm is a popular, well-studied algorithm for many problems
+involving latent variables.
+Probably one of the reasons for its popularity is that
+it is guaranteed to converge.
+However, it may converge to a local optimum value.
+As a result, similar to the k-means algorithm,
+one way to look for better solutions is to re-estimate
+the parameters with different (random) initializations.
+Similarly, as in k-means,
+the number of components (or distributions) has to be specified.
+We do not discuss the extensions of mixture models
+for unknown number of components,
+but we will revisit the problem briefly in the next chapter. %TODO
+
+%TODO: visualization
+
+\section{Dimensionality reduction}
+
+Another family of well-known and popular methods
+in unsupervised learning is \emph{dimensionality reduction}.
+In many problems, we have to deal with a (very) high dimensional data.
+However, most of these dimensions are highly correlated,
+and `meaningful' dimensions of the data is often much lower.
+A typical example in computational linguistics is
+characterization of a collection of documents
+based on (a measure of) the words that occur in each document.
+In this type of representation,
+each document is represented with a vector
+whose size is equal to the size of the vocabulary.
+Arguably, however,
+the differences or similarities between the documents can be 
+attributed to a much lower number of latent dimensions
+(for example, related to the topic or style).
+Finding these underlying/latent dimensions has a number of benefits,
+including
+\begin{itemize}
+  \item It is easier to visualize and understand lower-dimensional data
+  \item Reducing the dimensionality helps reduce
+    the computational complexity of the other methods applied to the data
+  \item Related to above,
+    one can use such a dimensionality reduction as
+    a lossy compression method
+  \item The lower-dimensional representation removes the noise,
+    potentially resulting in better generalizations
+\end{itemize}
+
+\begin{marginfigure}[-15\baselineskip]
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{pca-toy-demo}
+  \begin{tikzpicture}[%
+      x=5mm,y=5mm,
+    ]
+    \draw[opacity=0.2,step=1,gray,thin] (-5,-5) grid (5,5);
+    \draw[<->,thick] (-5,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[<->,thick] (0,-5) -- (0,5) node[anchor=east] {$x_{2}$};
+    \foreach \p/\x/\y in {1/-3/-4, 2/0/0, 3/3/4}{%
+      \node[circle,
+            inner sep=0pt,
+            outer sep=0pt,
+            fill=blue,
+            minimum size=1.5mm] at (\x, \y) {};
+      \node[anchor=south west,
+            font=\footnotesize] at (\x, \y) {p\p};
+    }
+    \foreach \x in {-4,...,4}{%
+      \node[gray,anchor=north east,
+            font=\footnotesize,
+            inner sep=2pt] at (0, \x) {\x};
+      \node[gray,anchor=north east,
+            font=\footnotesize,
+            inner sep=2pt] at (\x, 0) {\x};
+    }
+  \end{tikzpicture}
+  \caption{\label{fig:pca-toy-demo}%
+    Three data points in $\mathbb{R}^{2}$.
+  }
+\end{marginfigure}
+
+%TODO: ground the data points with an example: documents/words?
+We will motivate the dimensionality reduction
+with a simple artificial example.
+Figure~\ref{fig:pca-toy-demo} presents three data points
+in two-dimensional Euclidean space ($\mathbb{R}^{2}$).
+Although our data points are represented by two features,
+a careful look at the figure shows that
+all of our data points perfectly lines up on a single line.
+Intuitively,
+we can see that the two-dimensional representation is unnecessary.
+This can be seen in Figure~\ref{fig:pca-toy-demo-2}
+where the data points are mapped to another coordinate system
+by a simple linear transformation (rotation).
+Note that in Figure~\ref{fig:pca-toy-demo-2},
+the dimension $z_{2}$ is not necessary.
+
+\begin{marginfigure}[-10\baselineskip]
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{pca-toy-demo-2}
+  \begin{tikzpicture}[%
+      x=4mm,y=4mm
+    ]
+    \draw[<->,thick] (-6,0) -- (6,0) node[anchor=west] {$z_{1}$};
+    \draw[->,gray] (0,0) -- (0,1) node[anchor=south] {$z_{2}$};
+
+    \foreach \p/\x/\y in {1/-5/0, 2/0/0, 3/5/0}{%
+      \node[circle,
+            inner sep=0cm,
+            outer sep=0pt,
+            fill=blue,
+            minimum size=1mm]
+        at (\x, 0) {};
+      \node[anchor=south west,
+            font=\footnotesize] at (\x, 0) {p\p};
+    }
+    \foreach \x in {-5,0,5}{%
+      \node[anchor=north,
+            font=\footnotesize] at (\x, 0) {\x};
+    }
+  \end{tikzpicture}
+  \caption{\label{fig:pca-toy-demo-2}%
+    A transformation (rotation) applied to the data
+    in Figure~\ref{fig:pca-toy-demo}.
+  }
+\end{marginfigure}
+
+In the real world,
+it is not that common to come across data sets like the one in
+Figure~\ref{fig:pca-toy-demo},
+where the data is perfectly correlated.
+However, in many real data sets,
+some features/dimensions in the data 
+have very little information given the others.
+Figure~\ref{fig:pca-toy-demo-3} shows the result of applying
+the same transformation to a similar data set without perfect correlation
+(but with very high correlation).
+The $z_{2}$ dimension in the transformed version
+of this data set shows some variation.
+Hence, it is not completely redundant.
+However, it is also clear that if we remove $z_{2}$
+(set it to \num{0} for all data points),
+we do not loose much information.
+If we do the reverse transformation,
+or `reconstruct' the original data
+from the bottom part of Figure~\ref{fig:pca-toy-demo-3},
+the result will be as in Figure~\ref{fig:pca-toy-demo},
+which is not equal to the top panel of Figure~\ref{fig:pca-toy-demo-3},
+but it is not too far from it,
+i.e., the reconstruction error is small.
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{pca-toy-demo-3}
+  \begin{tikzpicture}[%
+      x=5mm,y=5mm,
+    ]
+    \draw[opacity=0.2,step=1,gray,thin] (-5,-5) grid (5,5);
+    \draw[<->,thick] (-5,0) -- (5,0) node[anchor=north] {$x_{1}$};
+    \draw[<->,thick] (0,-5) -- (0,5) node[anchor=east] {$x_{2}$};
+    \foreach \p/\x/\y in {1/-3.2/-3.8, 2/0/0, 3/2.8/4.2}{%
+      \node[circle,
+            inner sep=0pt,
+            outer sep=0pt,
+            fill=blue,
+            minimum size=1.5mm] at (\x, \y) {};
+      \node[anchor=south west,
+            font=\footnotesize] at (\x, \y) {p\p};
+    }
+    \foreach \x in {-4,...,4}{%
+      \node[gray,anchor=north east,
+            font=\footnotesize,
+            inner sep=2pt] at (0, \x) {\x};
+      \node[gray,anchor=north east,
+            font=\footnotesize,
+            inner sep=2pt] at (\x, 0) {\x};
+    }
+  \end{tikzpicture}
+
+  \vspace{2mm}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{pca-toy-demo-3t}
+  \begin{tikzpicture}[%
+      x=4mm,y=4mm
+    ]
+    \draw[<->,thick] (-6,0) -- (6,0) node[anchor=north,black] {$z_{1}$};
+    \draw[->,gray] (0,0) -- (0,1) node[anchor=east,black] {$z_{2}$};
+
+    \foreach \p/\x/\y in {1/-5/0.1, 2/0/-0.2, 3/5/0.1}{%
+      \node[circle,
+            inner sep=0cm,
+            outer sep=0pt,
+            fill=blue,
+            minimum size=1mm]
+        at (\x, \y) {};
+      \node[anchor=south west,
+            font=\footnotesize] at (\x, \y) {p\p};
+    }
+    \foreach \x in {-5,0,5}{%
+      \node[anchor=north east,
+            font=\footnotesize,
+            inner sep=2pt] at (\x, 0) {\x};
+    }
+  \end{tikzpicture}
+  \caption{\label{fig:pca-toy-demo-3}%
+    A slight variation of the 2D data in Figure~\ref{fig:pca-toy-demo}
+    without perfect correlation (top),
+    and its rotated version
+    in Figure~\ref{fig:pca-toy-demo-2} applied to it (bottom).
+  }
+\end{marginfigure}
+
+Dimensionality reduction is a general term used for a number of methods
+that reduce the dimensionality of the data
+by exploiting the dependencies in a high-dimensional feature space.
+There are a number of different methods for dimensionality reduction.
+Here, we will discuss a linear method,
+\emph{principal component analysis} (PCA).
+The PCA is simplest, and probably most popular,
+of the dimensionality reduction techniques.
+Most methods can be considered as extensions of PCA.
+
+Our toy example above, in fact, demonstrates the PCA.
+Similar to this informal example,
+the PCA does a linear transformation (rotation),
+of the original data set into another linear space
+such a way that the variables/dimensions are no more correlated.
+In other words,
+the new features, the principal components,
+are a linear combination of the original features.
+For example, in our example above,
+$z_{1} = \frac{3}{5} x_{1} + \frac{4}{5} x_{2}$
+and
+$z_{2} = -\frac{4}{5} x_{1} + \frac{3}{5} x_{2}$.
+The transformation by itself does not reduce the dimensionality of the data
+(we still have two components for \vect{z} in the example above).
+However, we can discard the latent dimensions with low variance
+as they do not contain a lot of information,
+and the discarding these dimensions will have little effect
+on the reconstruction error.
+
+The discussion above hints at a few different ways to look at the PCA,
+and, in general, dimensionality reduction.
+First we can view it as a  procedure to find
+the direction of the highest variance,
+the first \emph{principal component},
+then finding another direction with the highest variance
+which is (linearly) independent from, as a result perpendicular to,
+the first one,
+and find yet the direction of the largest variance
+that is perpendicular to previously found components,
+and so on.
+Figure~\ref{fig:pca-variance} demonstrates this idea.
+Since we have only two dimensions in Figure~\ref{fig:pca-variance},
+the second principal the direction of
+the second principal component is simply perpendicular
+to the first one.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{pca-variance}
+  \begin{tikzpicture}[x=9mm,y=9mm]
+    \draw[->,thick] (-2.5,-2.5) -- (2.5,-2.5) node[anchor=south] {$x_{1}$};
+    \draw[->,thick] (-2.5,-2.5) -- (-2.5,2.5) node[anchor=west] {$x_{2}$};
+
+    \foreach \x/\y/\X/\Y in {%
+          -1/-2/-1.5/-1.5, -2/0/-1/-1, -0.75/0.75/0/0,%
+          1.0/0/0.5/0.5, 2.25/0.75/1.5/1.5}{%
+      \node[circle, inner sep=0pt,
+            outer sep=0pt,
+            fill=blue,
+            minimum size=1mm] at (\x, \y) {};
+    }
+    \draw[thick,->, red] (-2, -2) -- (2, 2)
+      node[anchor=south west] {PC$_{1}$};
+    \draw[thick,->, red,shorten <=5mm]
+      ([xshift=5mm]1, -1) -- ([xshift=5mm]-1, 1)
+      node[anchor=south] {PC$_{2}$};
+  \end{tikzpicture}
+  \caption{\label{fig:pca-variance}%
+    Interpretation of the PCA as finding
+    the direction of the highest variance.
+  }
+\end{marginfigure}
+
+A second way to view PCA is finding a lower dimensional representation
+such that the reconstruction error is minimum.
+Figure~\ref{fig:pca-reconstruction} demonstrates this in two dimensions.
+If we reduce the data to a single dimensions,
+we would like to find the line (the lower dimensional space)
+with the minimum reconstruction error,
+which turns out to be the line that has the minimal average distance
+from all data points.
+The PCA in this example would map original data points (blue)
+to the points on the first principal component (red points).
+The mapping with the least error is the mapping with the minimum
+perpendicular distance between the data points
+and their image under the transformation.
+Considering this is a linear transformation,
+the idea translates to higher dimensional spaces trivially.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{pca-reconstruction}
+  \begin{tikzpicture}[x=9mm,y=9mm]
+    \draw[->,thick] (-2.5,-2.5) -- (2.5,-2.5) node[anchor=south] {$x_{1}$};
+    \draw[->,thick] (-2.5,-2.5) -- (-2.5,2.5) node[anchor=west] {$x_{2}$};
+
+    \foreach \x/\y/\X/\Y in {%
+          -1/-2/-1.5/-1.5, -2/0/-1/-1, -0.75/0.75/0/0,%
+          1.0/0/0.5/0.5, 2.25/0.75/1.5/1.5}{%
+      \node[circle, inner sep=0pt,
+            outer sep=0pt,
+            fill=blue,
+            minimum size=1mm] at (\x, \y) {};
+      \draw (\x, \y) -- (\X, \Y);
+      \node[circle,
+            inner sep=0cm,
+            outer sep=0pt,
+            fill=red,
+            minimum size=1mm] at (\X, \Y) {};
+    }
+    \draw[thick,->, red] (-2, -2) -- (2, 2)
+      node[anchor=south west] {PC$_{1}$};
+  \end{tikzpicture}
+  \caption{\label{fig:pca-reconstruction}%
+    Interpretation of the PCA as finding a lower
+    dimensional representation with minimum reconstruction error.
+  }
+\end{marginfigure}
+
+Yet another view is to assume that the data is generated
+by a lower dimensional variable,
+then it is mapped to a higher dimensional space with some added noise.
+That is, what we observe is due to a (lower dimensional) latent variable.
+This view is similar to our discussion of clustering and mixture densities.
+However, the latent variable in this case is a continuous one,
+while clustering and density estimation assumes
+a categorical latent variable.
+In particular,
+the PCA, according to this interpretation,
+assumes a multi-variate latent Gaussian variable.
+
+Depending on the view,
+there are different ways to formulate a procedure for performing the PCA.
+Following the variance-maximization approach,
+we can use a few well-established procedures from linear algebra.
+For reducing the reconstruction error,
+we can write an appropriate objective function,
+and find the principal components that minimize it.
+If we take the latent-variable view,
+we can, for example, use the EM algorithm estimate
+the parameters of the lower-dimensional latent variable,
+similar to estimating the estimating the mixture models.
+Here,
+we will only discuss the first approach in a bit more detail.
+
+The first approach to obtaining principal components is
+a well-known method from linear algebra called
+\emph{eigenvalue decomposition}.
+% Any matrix \vect{A} with certain properties can be factorized such
+% \[
+%   \vect{A} = \vect{U}\vect{\Lambda}\vect{U}^{-1}
+% \]
+% where columns of \vect{U} are the eigenvectors of \vect{A},
+% and \vect{\Lambda} is a diagonal matrix with corresponding eigenvalues.
+Here we will limit ourselves to a special case of eigenvalue decomposition,
+where the matrix we want to decompose is symmetric.
+For a symmetric matrix \vect{A},
+the eigenvalue decomposition results in 
+\[
+  \vect{A} = \vect{U}\vect{\Lambda}\vect{U}^{T}
+\]
+where columns of \vect{U} are orthogonal to each other,
+and they are the eigenvectors of \vect{A}.
+As a result, the columns of \vect{U} are not correlated.%
+\sidenote[][-2cm]{Remember the relation between orthogonality and independence.}
+The \vect{\Lambda} is a diagonal matrix with corresponding eigenvalues.
+
+Remember that for PCA,
+we are interested in a linear transformation
+where the resulting features are decorrelated,
+and we also want to be able to tell the features that are associated with 
+the large variance.
+The above decomposition gives us both:
+the eigenvectors are decorrelated (orthogonal to each other),
+and the larger the eigenvalues, the larger the amount of variance.
+For the rest of the discussion here,
+we will assume that our variables are standardized.%
+\sidenote[][-4cm]{%
+  Remember that to standardize a variable,
+  we \emph{center} by subtracting the mean of the variable,
+  and \emph{scale} it with it standard deviation.
+  The standardized version of the variable $x$ with mean $\mu$
+  and standard deviation $\sigma$ is
+  \[
+    z = \frac{x - \mu}{\sigma} \text{.}
+  \]
+  Note that this is a linear mapping between $x$ and $z$.
+  Any linear operation on $z$ can be expressed in terms of $x$
+  by a reverse transformation.
+}
+To perform PCA using eigenvalue decomposition,
+we simply apply it to the covariance matrix
+($\vect{\Sigma} = \vect{U}\vect{\Lambda}\vect{U}^{T}$).%
+\sidenote{%
+  Note that if our data matrix \vect{X} is arranged
+  such that columns represent the features,
+  and rows represent the instances (data points),
+  and if the vectors representing each data point are standardized,
+  \[
+    \vect{\Sigma} = \vect{X}^{T} \vect{X} \text{.}
+  \]
+}
+The columns of \vect{U} is now the directions of the principal components,
+and the diagonal values of \vect{\Lambda} indicate
+the magnitude of the variance in the corresponding direction.
+Once we find the eigenvectors, 
+the matrix of eigenvectors, \vect{U},
+transforms the vectors from the original input space
+to the space of the principal components.
+Any (column) vector \vect{x} can be transformed
+by $\vect{z} = \vect{U}^{T}\vect{x}$.%
+\footnote{%
+  We can obtain a transformed version of the original data matrix,
+  by $\vect{Z} = \vect{X}\vect{U}$.
+  Note that this holds because
+  the data vectors are rows of \vect{X},
+  and the transformed vectors will be the rows of \vect{Z}.
+}
+If we want to transform \vect{z} back to the original feature space,
+all we need to do is to use the inverse transformation.
+A nice property of the orthogonal matrices is that their inverse
+is their transpose.
+As a result,
+the inverse transformation is simply $\vect{x} = \vect{U}\vect{z}$.
+
+Note, however, that we have not done any dimensionality reduction yet.
+If our original feature space has $m$ dimensions,
+the dimension of the covariance matrix \vect{\Sigma},
+and hence the matrix \vect{U}, will be $m\times{}m$,
+multiplying \vect{U} with any $m$-dimensional vector \vect{x}
+results in another $m$-dimensional vector \vect{z}.
+Instead of using the complete matrix \vect{U} we can pick only 
+the eigenvectors (columns) that correspond to the largest $d$ eigenvalues.
+This will result in a matrix $\vect{U}_{L}$ with $m\times{}d$ dimensions
+whose transpose can be used to transform $m$-dimensional input to
+the lower $d$-dimensional space.
+
+Although the eigenvalue decomposition explained above demonstrate
+the PCA conceptually as decorrelation and maximizing variance,
+another well-known method from linear algebra,
+\emph{singular value decomposition} (SVD),
+is often more convenient for performing the PCA.
+The SVD factorizes the data matrix \vect{X} directly such that
+\[
+  \vect{X} = \vect{V} \vect{D} \vect{U}^{T}
+\]
+where \vect{V} and $\vect{U}^{T}$ are orthogonal matrices,
+and \vect{D} is a diagonal matrix of singular values.
+As in eigenvalue decomposition,
+rows of $\vect{U}^{T}$ contain the eigenvectors.
+The diagonal matrix \vect{D} is related to eigenvalues
+($\vect{D}^{2} = \vect{\Lambda}$).
+The result, hence, is equivalent.
+The SVD has some other applications we will get back later in this course.
+
+%TODO: example
+
+Although the PCA is a very popular method,
+there are quite a few other methods for dimensionality reduction.
+Please see the notes at the end for pointers to these methods. %TODO
+
+\section{Unsupervised learning with neural networks}
+
+Typical neural networks are trained using backpropagation,
+which requires supervision, an error signal
+to be backpropagated thorough the network.
+However, there are a number of ways to use neural networks
+as unsupervised learners.
+Here we will introduce two typical unsupervised methods
+to train neural networks,
+and briefly note a more recent method.
+
+\subsection{Restricted Boltzmann machines}
+As in other unsupervised approaches we discussed earlier,
+one way to formulate unsupervised learning through a neural network
+is to use hidden or latent variables.
+\emph{Restricted Boltzmann Machines} (RBMs) is such a network architecture
+consisting of one hidden layer (the latent variable)
+and an input layer (depicted in Figure~\ref{fig:rbm}).
+The layers of the RBM are fully connected,
+but there are no links within the layers.
+Although it is not a requirement,
+typically the hidden layer has a smaller dimension than the input layer.
+Hence, the idea is very similar to PCA,
+or other dimensionality reduction methods.
+We present an input to the network,
+and obtain a useful (lower dimensional) representation of the input
+at the hidden layer.
+\begin{marginfigure}
+  \centering
+  \tikzsetnextfilename{rbm}
+%  \tikzset{external/export next=false}
+      \begin{tikzpicture}[x=10mm, y=13mm,blue!40!black]
+        \tikzset{neuron/.style={draw,%
+                                circle,%
+                                fill=black!20,%
+                                inner sep=0,%
+                                minimum size=14}
+        };
+        \foreach \x in {1,...,4} {
+          \node (x-\x) at (\x, 0) {$x_{\x}$};
+          \ifthenelse{\x=2 \OR \x=3}{
+            \pgfmathsetmacro{\h}{int(\x-1)}
+            \typeout{aaa \h}
+            \node[neuron] (h-\h) at (\x, 1) {$h_{\h}$};
+          }{}
+        }
+        \foreach \x in {1,...,4} {
+          \foreach \y in {1,2} {
+            \draw (x-\x) -- (h-\y);
+          }
+        }
+        \node[right=1mm of x-4,yshift=7mm] {\vect{W}};
+
+        \node[thick,draw,circle,minimum size=18] at (1.5, -0.5)
+          (h) {$\vect{h}$};
+        \node[thick,draw,circle,fill=blue!50,right=20mm of h,minimum size=18]
+          (x) {$\vect{x}$};
+        \draw[thick] (h) -- (x);
+      \end{tikzpicture}
+  \caption{%
+    A schematic description of a restricted Boltzmann machine (top),
+    and equivalent representation as a (undirected) graphical model (bottom).
+  }\label{fig:rbm}
+\end{marginfigure}
+
+In an RBM, we do not have outputs.
+Hence, we cannot just define a loss function based on the expected output,
+and use backpropagation to train the network.
+RBMs are generative models that model the joint probability
+of the hidden variable and the input.
+The joint probability distribution defined by an RBM is
+\begin{equation*}
+  p(\vect{h}, \vect{x}) = \frac{e^{h^{T} \vect{W} x}}{Z}
+\end{equation*}
+where $Z$ a normalizing constant (a sum over all possible configurations)
+that makes sure that the result is a proper probability distribution.
+Learning in an RBM, then, becomes finding the parameters that
+maximizes this joint probability.
+Exact solution to this learning problem is intractable.
+In practice often an approximate solution is found using
+\emph{contrastive divergence} algorithm,
+which is an iterative algorithm somewhat similar to the EM algorithm
+discussed earlier.
+
+\subsection{Autoencoders}
+
+RBMs are theoretically interesting models.
+However, training RBMs is computationally expensive,
+and since the training RBMs require a special algorithm,
+it does not benefit from many developments in the
+(supervised) neural network literature.
+\emph{Autoencoders} are a practical solution to elevate these problems.
+
+\begin{marginfigure}
+  \centering
+  \tikzsetnextfilename{autoencoder}
+%  \tikzset{external/export next=false}
+      \begin{tikzpicture}[x=9mm, y=15mm,blue!40!black,->,>=stealth]
+        \tikzset{neuron/.style={draw,%
+                                circle,%
+                                fill=black!20,%
+                                inner sep=0,%
+                                minimum size=14}
+        };
+        \foreach \x in {1,...,5} {
+          \node (x-\x) at (\x, 0) {$x_{\x}$};
+          \node[neuron] (y-\x) at (\x, 2) {$\hat{x}_{\x}$};
+          \ifthenelse{\x = 1 \OR \x = 5}{}{%
+            \pgfmathparse{int(\x-1)}
+            \xdef\hlabel{\pgfmathresult};
+            \node[neuron] (h-\x) at (\x, 1) {$h_{\hlabel}$};
+          }
+        }
+        \foreach \x in {1,...,5} {
+          \foreach \y in {2,...,4} {
+            \draw (x-\x) -- (h-\y);
+            \draw (h-\y) -- (y-\x);
+          }
+        }
+        \node[right=2mm of h-4,yshift=-4mm] {\vect{W}};
+        \node[right=2mm of h-4,yshift=4mm] {$\vect{W}^{*}$};
+        \node[left=2mm of x-1,rotate=90,anchor=west,font=\footnotesize] {Encoder};
+        \node[left=2mm of y-1,rotate=90,anchor=east,font=\footnotesize] {Decoder};
+      \end{tikzpicture}
+      \caption{An autoencoder, a standard feed-forward network predicting its own input.}\label{fig:autoencoder}
+\end{marginfigure}
+An autoencoder is a standard feed-forward network
+trained to predict its own input.
+Figure~\ref{fig:autoencoder} presents a typical autoencoder.
+We can consider an autoencoder in two parts,
+an \emph{encoder} that takes the input and encodes in the hidden layer,
+and a \emph{decoder} that takes
+the hidden representations and reconstructs the output.%
+\sidenote{The encoder--decoder architecture is not restricted
+to `auto' encoding. They are also used in solving problems where input--output
+pairs are different, e.g., machine translation.}
+The weights of the encoder and decoder may be \emph{shared}.
+That is, the weights of the decoder (\vect{W}) are the transpose of the 
+weights of the encoder ($\vect{W}^*$).%
+\sidenote{Weight sharing is a common concept in neural networks,
+especially in more complex models. When it makes sense,
+weight sharing reduces the model complexity,
+and may result in learning better models.}
+
+Since the network has to predict its own input,
+through a lower dimensional representation in the hidden layer,
+it needs to learn a hidden representation with minimum reconstruction error.
+Again, the idea is similar to PCA.
+And an autoencoder with a single layer is known to approximate PCA.
+Autoencoders with multiple hidden layers (deep autoencoders),
+can learn non-linear relationships between the input variables.
+Besides the potential benefit of discovering non-linear relationships,
+another practical benefit of autoencoders is their memory efficiency.
+The matrix factorization techniques that are used for PCA
+may become inefficient on large data sets.
+Since autoencoders are trained like a standard feed-forward network,
+they can be efficiently trained using small batches.
+
+
+\begin{marginfigure}
+  \centering
+  \tikzsetnextfilename{autoencoder-overcomplete}
+%  \tikzset{external/export next=false}
+      \begin{tikzpicture}[x=9mm, y=12mm,blue!40!black,->,>=stealth]
+        \tikzset{neuron/.style={draw,%
+                                circle,%
+                                fill=black!20,%
+                                inner sep=0,%
+                                minimum size=14}
+        };
+        \foreach \x in {1,...,5} {
+          \node[neuron] (h-\x) at (\x, 1) {$h_{\x}$};
+          \ifthenelse{\x = 1 \OR \x = 5}{}{%
+            \pgfmathparse{int(\x-1)}
+            \xdef\hlabel{\pgfmathresult};
+            \node (x-\x) at (\x, 0) {$x_{\hlabel}$};
+            \node[neuron] (y-\x) at (\x, 2) {$\hat{x}_{\hlabel}$};
+          }
+        }
+        \foreach \x in {1,...,5} {
+          \foreach \y in {2,...,4} {
+            \draw (x-\y) -- (h-\x);
+            \draw (h-\x) -- (y-\y);
+          }
+        }
+      \end{tikzpicture}
+      \caption{An over-complete autoencoder.}\label{fig:overcomplete}
+\end{marginfigure}
+Autoencoders are typically used to learn
+a lower dimensional hidden representation.
+However, it is also possible to use a larger hidden representation
+as shown in Figure~\ref{fig:overcomplete}.
+Such autoencoders are called \emph{over-complete} autoencoders.%
+\sidenote{Not surprising,
+the autoencoders with a lower dimensional hidden representation,
+like the one in Figure~\ref{fig:autoencoder},
+are called \emph{under-complete} autoencoders.}
+A particular use of such autoencoders is to train them
+with L1 regularization, forcing them to learn sparse features
+form more complex input features.
+The hidden representation in this case `disentangles' some of the 
+complex features to simpler ones
+-- which are hopefully more interpretable or useful for a downstream task.
+\todo{An example?}
+
+\begin{marginfigure}
+  \centering
+  \tikzsetnextfilename{autoencoder-denoising}
+%  \tikzset{external/export next=false}
+      \begin{tikzpicture}[x=9mm, y=15mm,blue!40!black,->,>=stealth]
+        \tikzset{neuron/.style={draw,%
+                                circle,%
+                                fill=black!20,%
+                                inner sep=0,%
+                                minimum size=14}
+        };
+        \foreach \x in {1,...,5} {
+          \node (xx-\x) at (\x, 0.5) {$x_{\x}$};
+          \ifthenelse{\x = 1 \OR \x = 3}{}{%
+            \node (x-\x) at (\x, 1) {$x_{\x}$};
+          }
+          \node[neuron] (y-\x) at (\x, 3) {$\hat{x}_{\x}$};
+          \ifthenelse{\x = 1 \OR \x = 5}{}{%
+            \pgfmathparse{int(\x-1)}
+            \xdef\hlabel{\pgfmathresult};
+            \node[neuron] (h-\x) at (\x, 2) {$h_{\hlabel}$};
+          }
+        }
+        \node (x-1) at (1, 1) {0};
+        \node (x-3) at (3, 1) {0};
+
+        \foreach \x in {1,...,5} {
+          \draw (xx-\x) -- (x-\x);
+          \foreach \y in {2,...,4} {
+            \draw (x-\x) -- (h-\y);
+            \draw (h-\y) -- (y-\x);
+          }
+        }
+        \node[right=1mm of xx-5] {\vect{x}};
+        \node[right=1mm of x-5] {$\widetilde{\vect{x}}$};
+        \node[right=11mm of h-4] {$\vect{h}$};
+        \node[right=1mm of y-5] {$\hat{\vect{x}}$};
+      \end{tikzpicture}
+      \caption{A denoising autoencoder.}\label{fig:denoising}
+\end{marginfigure}
+Another variation of autoencoders is \emph{denoising} autoencoders.
+As shown in Figure~\ref{fig:denoising},
+the input of a denoising autoencoder is corrupted with noise.
+When trained,
+the autoencoder learns to eliminate the type of noise introduced.
+Hence, possibly being useful for removing noise,
+e.g., from images or sound signals.
+Note that
+unlike the typical use of autoencoders where we are interested
+in the hidden representations rather than the output of the network,
+in this use, we are interested in full reconstruction.
+
+\todo[inline]{variational autoencoders?}
+
+\subsection{Generative adversarial networks}
+
+Another, rather recent but highly influential method is
+\emph{generative adversarial networks} (GANs).
+Although it is introduced, and mainly used with (deep) neural networks,
+the interesting part of GANs is the training regime of the system.
+In a GAN, there are two classifiers;
+a generative model that tries to generate objects of interest
+(e.g., paintings by an artist, or novels of an author),
+while a discriminative model tries to distinguished
+the true instances of the objects from the objects generated
+by the generative model.
+The interesting part of the approach is that,
+the success (or failure) of the discriminative network is used
+as the supervision signal for the generative one.
+The task of the generative model is to fool the discriminative model.
+As it becomes more successful in doing so,
+it learns a better representation for the data.
+
+We will not discuss GANs in detail here,
+but they are one of the relatively recent developments that
+became popular in a number of fields,
+even with some impact on popular culture.%
+\sidenote{Just to exemplify, a painting generated by a GAN
+was recently sold for \SI{432500}[\$]{}.}
+
+% \section*{Where to go from here}
+% 
+% \cite{jain2010}: k-means 
+% 
+% \cite{pena1998}: k-means initializations
+% 
+% \cite{rosenberg2007}: V-measure
+% 
+% \cite{amigo2009}: comparison of clustering evaluation measures

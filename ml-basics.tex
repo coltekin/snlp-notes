@@ -1,0 +1,1745 @@
+\chapter{\label{chap:ml-basics}Machine learning basics}
+
+Statistical methods,
+particularly methods from machine learning,
+has been the most successful solutions for many
+applications dealing with natural languages.
+The methods from machine learning dominates the filed
+so much that many people consider NLP as a branch of machine learning.
+
+Machine learning is about learning from data.
+Instead of writing a specialized program based on expert knowledge
+for solving a problem, we rely on generic `programs', or  models,
+which learn from data.
+As noted above, this has proven useful in many applications.
+However, machine learning also offers us ways to 
+analyze the data at hand and arrive at generalizations
+that are sometimes impossible without use of these techniques.
+
+This lecture introduces some of the basic ideas behind machine learning,
+alongside linear regression,
+a simple but fundamental model for learning from data.
+
+\section{Machine learning: broad categorization of methods}
+
+Machine learning methods are categorized
+into a number of broad categories in the literature.
+Most commonly, the methods are categorized
+based on the amount of supervision they need.
+On the one hand,
+a \emph{supervised} method requires labeled data.
+That is, every object we want to classify (e.g., a document) 
+has to be annotated with target information  want to predict
+(e.g., the author of the document) in the training data.
+However, the aim of the method is
+to make predictions outside its training set.
+We want our models to generalize not memorize.
+On the other hand,
+an \emph{unsupervised} method does not require
+any target label or information.
+The aim is to use the differences and similarities
+between the data points for finding useful patterns.
+The methods that exploit both annotated data
+(with target label/information) and unannotated data
+are called \emph{semi-supervised}.
+Another interesting class of methods
+where success and failure is not associated with 
+individual predictions but a collection of them
+is called \emph{reinforcement learning}.
+
+In this course we mostly focus on supervised methods,
+but also cover some of the unsupervised methods
+commonly used in the field.
+
+\newthought{In supervised learning} the training data contains
+what we want to predict.
+The task of the system is, then,
+to learn this predictions from the training data
+in a way that it is useful for
+making predictions for new, unseen instances.
+An overall picture of supervised learning is provided
+in Figure~\ref{fig:supervised-learning}.
+
+\begin{figure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{supervised-learning-diagram}
+  \begin{tikzpicture}[node distance=8mm]
+    \tikzset{mnode/.style={draw,
+                           font=\small,
+                           text width=width("predicted"),
+                           minimum width=width("predicted"),
+                           align=center,
+                           minimum height=5ex,
+                           inner sep=2pt,
+                           rounded corners,
+                           }
+    }
+    \node[mnode,fill=green!20] (train) {training data};
+    \node[mnode,fill=green!20, right=of train] (feat) {features};
+    \node[coordinate, below=of train] (dummy) {};
+    \node[mnode,fill=green!20, below=of dummy] (label) {labels};
+    \node[mnode,fill=green!20, below right=of feat] (ml) {ML algorithm};
+    \node[mnode, right=of ml,fill=orange!50] (model) {ML model};
+    \node[mnode,fill=blue!20, above=of model] (nfeat) {features};
+    \node[mnode,fill=blue!20, above=of nfeat] (newd) {new data};
+    \node[mnode,fill=blue!20, below=of model] (pred) {predicted label};
+
+    {[on background layer]
+      \node[mnode,fill=green!20] at ([xshift=-6pt,yshift=6pt]train) {};
+      \node[mnode,fill=green!20] at ([xshift=-4pt,yshift=4pt]train) {};
+      \node[mnode,fill=green!20] at ([xshift=-2pt,yshift=2pt]train) {};
+
+      \node[mnode,fill=green!20] at ([xshift=-6pt,yshift=6pt]feat) {};
+      \node[mnode,fill=green!20] at ([xshift=-4pt,yshift=4pt]feat) {};
+      \node[mnode,fill=green!20] at ([xshift=-2pt,yshift=2pt]feat) {};
+
+      \node[mnode,fill=green!20] at ([xshift=-6pt,yshift=6pt]label) {};
+      \node[mnode,fill=green!20] at ([xshift=-4pt,yshift=4pt]label) {};
+      \node[mnode,fill=green!20] at ([xshift=-2pt,yshift=2pt]label) {};
+
+      \draw[blue!20,very thick,->]
+        ([xshift=2mm]newd.north east) -- ([xshift=2mm]pred.south east)
+        node[blue,midway, above,rotate=-90] {prediction};
+      \draw[green!20,very thick,->]
+        ([yshift=2mm]train.west |- model.north)
+          -- ([yshift=2mm]model.north east)
+        node[green,near start,below] {training};
+    }
+
+    \draw[thick,->] (train) -- (feat);
+    \draw[thick,->] (feat) -- ([yshift=2pt]ml.west);
+    \draw[thick,->] (label) -- ([yshift=-2pt]ml.west);
+    \draw[thick,->] (ml) -- (model);
+
+    \draw[thick,->] (newd) -- (nfeat);
+    \draw[thick,->] (nfeat) -- (model);
+    \draw[thick,->] (model) -- (pred);
+  \end{tikzpicture}
+  \caption{
+    A picture of supervised learning.
+  }\label{fig:supervised-learning}%
+\end{figure}
+
+During training, we need both our training data and
+the associated predictions (indicated as `labels' in Figure~\ref{fig:supervised-learning}).
+Typically, the objects we want to work with cannot be
+used directly with a machine learning algorithm.
+We need to first extract features that are useful for prediction
+and can be represented in a form the machine learning algorithms can work with.
+For example, to classify documents,
+we may use the length of the documents,
+or number of times a particular word occurs in the document as features.
+The role of the machine learning algorithm is to find the best model
+(among a family of models) based on the training set.
+During prediction time,
+we first extract the features from a new data instance the same way we did during training,
+and predict the outcome using the model.
+An important point that is worth repeating is
+we want our model to perform well on the new data.%
+\sidenote[][-1cm]{And, we will repeat this many times in this class.}
+
+      \pgfplotstableread{
+        X Y
+        0.8 1.7
+        2.1 5.0
+        2.9 4.
+        4.1 2.6
+        4.9 3.6
+        6.1 7.2
+        6.9 6.1
+        8.1 8.9
+        8.9 8.4
+      }\regtable
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{regression-example}
+  \begin{tikzpicture}
+    \begin{axis}[x=5mm, y=3mm,
+                 ticklabel style={font=\tiny},
+                 grid=major,
+                 grid style={draw=gray!10},
+                 major grid style={draw=gray!40},
+%                 minor tick num=4,
+                 xmin=0,
+                 xlabel={$x$},
+                 ylabel={$y$},
+                 xlabel style={font=\tiny},
+                 ylabel style={font=\tiny},
+                 axis y line=left,
+                 axis x line=bottom,
+                 xlabel style={at={(rel axis cs:1,0)}, anchor=south east},
+                 ylabel style={at={(rel axis cs:0,1)}, anchor=north west,rotate=-90},
+                 ymin=0,
+      ]
+
+      \addplot[only marks, mark size=0.4mm,fill=blue] table {\regtable};
+      \addplot [no marks, thick, red]
+        table [y={create col/linear regression={y=Y}}] {\regtable};
+      \addplot[no marks,thick,red,domain=0:9]
+        {\pgfplotstableregressiona*x+\pgfplotstableregressionb};
+      \draw[blue] (5.5,0) -- (5.5, \pgfplotstableregressiona*5.5+\pgfplotstableregressionb);
+      \draw[blue] (5.5, \pgfplotstableregressiona*5.5+\pgfplotstableregressionb) -- (0, \pgfplotstableregressiona*5.5+\pgfplotstableregressionb);
+      \node[inner sep=1pt,blue,anchor=south east,font=\tiny] at (5.5, 0) {$5.5$};
+      \node[inner sep=1pt,blue,anchor=north west,font=\tiny] at (0, 5.7) {$5.7$};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:regression-example}
+    A demonstration of simple linear regression.
+  }
+\end{marginfigure}
+If a supervised machine learning model predicts a numeric value
+it is called a \emph{regression} model.
+A simple regression model predicting one numeric variable ($y$)
+from a single numeric predictor ($x$) is demonstrated
+in Figure~\ref{fig:regression-example}.
+The small circles on the plot represent the pairs of $x$,$y$ values observed.
+The red line is the model after observing this `training' data.
+Once we have the model,
+our predictions for the new data points will be based on this line.
+The blue lines on the figure demonstrate the prediction of the model
+for $x=5.5$, which turns out to be $5.7$ according to this model.
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{classification-example}
+  \begin{tikzpicture}[x=5.5mm, y=4mm]
+    \draw[->,thick] (0,0) -- (0,6.5);
+    \draw[->,thick] (0,0) -- (7.5,0);
+    \node[rotate=90] at (-0.5, 3) {$x_{2}$};
+    \node at (4, -0.5) {$x_{1}$};
+%    \draw[-,thick] (0.1,5.5) -- (6.5, 0.1);
+    \node[green] at (3.4,3.4) {?};
+    \foreach \pos in {(1, 1), (2, 1), (3,1.5), (1.2, 2.4)}
+      \node[very thick, red] at \pos {\bf +};
+    \foreach \pos in {(6, 5.7), (5, 3.3), (5.2,5.8), (6.2, 4.7)}
+      \node[very thick, blue] at \pos {\bf --};
+  \end{tikzpicture}
+  \caption{\label{fig:classification-example}
+    A demonstration of classification problem.
+  }
+\end{marginfigure}
+If the model predicts a category or a label,
+it is called a \emph{classification} model.
+Figure~\ref{fig:classification-example} demonstrates an example setting
+for classification, where the points marked with $+$ and $-$
+are the data points expressed in a two dimensional feature space.
+Unlike in regression example above,
+both axes correspond to features in this example.
+The outcome, the category, is represented by the shape of the data point.
+Similar to regression, we estimate a model on the training data.
+The aim is to predict the class ($+$ or $-$) of an unseen data point.
+
+In NLP we use classification more often than regression,
+since many properties of natural language data
+we want to predict are categorical.
+However, besides occasional practical use,
+understanding regression will also help understanding
+other machine learning methods in general.
+In this lecture we will introduce some of the basic concepts and issues
+in machine learning through regression,
+and return to classification next.
+
+\newthought{Unsupervised learning} refers to a set of methods
+that allow us to find interesting or useful patterns
+that are not explicitly marked in the data.
+Figure~\ref{fig:unlabeled-dots} show a set of data instances
+plotted on a two-dimensional space (based on two features).
+For example, these dots could represent the instances of speech sounds,
+while the features (axes) could be frequency and duration of each instance.
+Not having any labels (e.g., phonemes, or speakers these points belong to),
+we cannot use a supervised learning algorithm.
+However, it is easy for human eye to pick two groups in the data presented
+in Figure~\ref{fig:unlabeled-dots}.
+Such methods allow exploring the data in insightful ways.
+However, once we build a model based on the extracted pattern,
+we can also assign group, or \emph{cluster} memberships to new data items.
+Although we cannot assign a meaningful name to the clusters automatically, 
+being able assign data points to clusters is also useful
+for supplementing supervised methods.
+\begin{marginfigure}
+  \centering
+  \tikzsetnextfilename{unlabeled-2d-dots}
+%      \tikzset{external/export next=false}
+      \begin{tikzpicture}[x=8mm,y=8mm]
+        \tikzset{mdot/.style={draw,
+                              circle,
+                              inner sep=0pt,
+                              outer sep=0pt,
+                              minimum size=0.8mm,
+                              }
+        }
+        \draw[->,thick] (0,0) -- (5,0); %node[anchor=north] {$x_{1}$};
+        \draw[->,thick] (0,0) -- (0,5); %node[anchor=east] {$x_{2}$};
+        \foreach \pos in 
+        {(1, 3), (0.7, 4), (2, 3.2), (1.2, 3.4), (2,3), (1.5, 2.5),
+         (1.5, 4)} {%
+%         \only<1>{%
+            \node[mdot, fill=blue] at \pos {};
+%        }
+%         \only<2->{%
+%           \node[mdot, fill=orange] at \pos {};
+%        }
+        }
+        \foreach \pos in {(2.8, 1.3), (3, 1.9), (3, 1.4), (4,2),
+                          (3.2, 2.6), (4.1, 3.2), (3.5, 1.5), (4, 2.5)} {%
+          \node[mdot, fill=blue] at \pos {};
+        }
+%        \draw[step=5mm,gray,very thin,dotted] (0,0) grid (5,5);
+%        \draw[step=10mm,gray] (0,0) grid (5,5);
+      \end{tikzpicture}
+      \caption{\label{fig:unlabeled-dots}
+        A set of unlabeled data points in a two-dimensional feature space.
+      }
+\end{marginfigure}
+
+Most commonly used unsupervised methods include
+\emph{clustering}, \emph{density estimation}
+and \emph{dimensionality reduction}.
+Clustering refers to the process we described above:
+given a set of unlabeled data points,
+the aim is to find a `natural grouping' within the data.
+Density estimation is similar to clustering,
+but we assume data comes from a mixture of probability densities.
+As a result, each data point receives a probability (or likelihood)
+of coming from one of these probability distributions.
+In a way, density estimation makes `soft assignments'
+to each density, or cluster.
+Dimensionality reduction aims to reduce a data set
+defined in a high-dimensional feature space
+into a lower dimensional while retaining most of the information the data.
+We will revisit all these methods and discuss in more detail in this class.
+
+\section{The linear regression model}
+
+The linear regression is a simple,
+yet a very fundamental method in statistics (and machine learning).
+A simple linear regression model predicts value of
+a numeric variable, conventionally denoted $y$,
+from a set of predictors, denoted \vect{x}.%
+\sidenote[][-1cm]{Note that \vect{x} is a vector.
+  In case of a single predictor,
+  we also use the symbol $x$ (a scalar, not a vector).}
+In the simple case of a single predictor,
+the model is expressed by Equation~\ref{eq:simple-linear-reg},
+which corresponds to a line in $x$--$y$ plane.
+\begin{equation}\label{eq:simple-linear-reg}
+  y = a +  b x
+\end{equation}
+where $y$ is the outcome variable we want to predict,
+$x$ is our single predictor,
+and $a$ and $b$ are the parameters of the model,
+which are called \emph{intercept} and \emph{slope} respectively.%
+\sidenote[][-3cm]{%
+  The symbols $a$ and $b$ for intercept and slope are widely used conventions
+  (especially in statistics).
+  However, alternative notations instead of $a$ and $b$ include
+  \begin{itemize}
+    \item $\alpha$ and $\beta$
+    \item $\theta_{0}$ and $\theta_{1}$
+    \item $w_{0}$ and $w_{1}$
+  \end{itemize}
+  The indexed notations help when we extend this single-predictor model
+  to multiple predictors.
+  In some neural network literature intercept is sometimes denoted
+  with letter $b$, as it is also called the \emph{bias term}.
+}
+The intercept is the value at which the line `intercepts' the $y$ axis,
+and the slope is the slope of the line
+representing the linear equation on Euclidean space.
+Slope indicates the amount of change in $y$
+for each unit change in $x$.
+Figure~\ref{fig:linear-line-examples} demonstrates
+a few examples of linear equations with different slope and intercept values.
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{linear-line-examples}
+  \begin{tikzpicture}[x=5mm,y=5mm,
+      eq/.style={font=\scriptsize,midway,sloped},
+    ]
+    \draw[<->,thick] (-5, 0) -- (5, 0) node[anchor=south] {$x$};
+    \draw[<->,thick] (0, -5) -- (0, 5) node[anchor=east] {$y$};;
+    \draw[thick,blue] (-4, 5) -- (5, -4)
+      node[eq,above,xshift=-15mm] {$y = 1 - x $};
+    \draw[thick,orange] (-5, -4) -- (4, 5)
+      node[eq,above,xshift=15mm]{$y = 1 + \frac{1}{2} x$};
+    \draw[thick,red] (-5, -5) -- (5, 5) 
+      node[eq,below,xshift=-15mm] {$y = \frac{1}{2} x$};
+    \draw[thick,purple] (-5, -1) -- (5, -1)
+      node[eq,below,xshift=20mm]{$y = -1$} ;
+  \end{tikzpicture}
+  \caption{\label{fig:linear-line-examples}%
+    Example instances of Equation~\ref{eq:simple-linear-reg}.
+  }
+\end{marginfigure}
+A positive slope means the outcome $y$ increases as $x$ increases,
+while a negative slope indicates a decrease in $y$ value as $x$ increases.  
+A slope of $0$ simply means $y$ is constant,
+it is not affected from values of $x$.
+
+The equation generalizes to multiple predictors trivially.
+For $k$ predictors, we have
+
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{linear-plane-example}
+  \begin{tikzpicture}
+    \begin{axis}[width=\linewidth,
+%      axis lines=center,
+%      axis on top,
+        xlabel=$x_{1}$,
+        ylabel=$x_{2}$,
+        zlabel=$y$,
+        ticklabel style={font=\tiny},
+        ylabel style={font=\small, yshift=3mm},
+        xlabel style={font=\small, yshift=3mm},
+        zlabel style={font=\small, yshift=-3mm},
+        major tick length=1pt,
+        colormap/PuBu,
+      ]
+      \addplot3 [surf,domain=-2:2] {1 - 2*x + y};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:linear-plane-example}%
+    Visualization of a linear  of a linear equation with two predictors:
+    $y = 1 - 2x_{2} + x_{1}$.
+  }
+\end{marginfigure}
+\begin{equation}\label{eq:linear-regression-multiple-predictors}
+  y = w_{0} + w_{1} x_{1} + w_{2} x_{2} + \ldots + w_{k} x_{k}
+\end{equation}
+We can simplify the notation by specifying the weight vector as
+$\vect{w} = (w_{0}, \ldots, w_{k})$
+and the input vector as $\vect{x} = (1, x_{1}, \ldots, w_{k})$.%
+\sidenote{Note that $x_{0}$ is always $1$.}
+Then Equation~\ref{eq:linear-regression-multiple-predictors} becomes
+\begin{equation*}
+  y = \vect{w} \vect{x} .
+\end{equation*}
+Now, the equation defines a (hyper)plane.
+Figure~\ref{fig:linear-plane-example} visualizes an example
+linear model with two predictors.
+With multiple predictors,
+we have multiple coefficients indicating the slope for each predictor.
+They still indicate the amount of change in the outcome variable
+for unit change in the corresponding predictor
+while all other predictors are kept constant.
+Effects of all predictors are additive.
+In the example in Figure~\ref{fig:linear-plane-example},
+negative slope of $x_{1}$ means that $y$ decreases as $x_{1}$ increase,
+while positive slope for $x_{2}$ means that increasing $x_{2}$ increases $y$.
+The value of $y$, however, is determined
+based on the linear combination of both.
+Beyond 2 predictors (three dimensions including the outcome variable),
+the visualization becomes impossible.
+However, the idea of a relationship, determined by a hyperplane
+generalizes to higher dimensions as well.
+
+\section{Estimating parameters}
+
+The model we briefly discussed above is useful for modeling
+a vast amount of phenomena.
+The linear model is most likely the most common tool
+used across all modern sciences.
+Equation~\ref{eq:linear-regression-multiple-predictors}
+defines a `model family'.
+Each choice of intercept and slope values defines another model.
+For some problems, these values are fixed,
+and one can find the values of the parameters
+with an analytic method of some sort.
+However, the aim in machine learning (and statistics) is
+to learn these parameters from data.
+Now we will turn to the question of how one can find the `best'
+parameters given a data set with
+observations of both predictors and the outcome variable.
+
+\pgfplotstableread{
+  X Y
+-4.026579932641875 -2.9606267712795913
+-3.49903232790623 -3.308551943217599
+-3.0438281982118354 -0.8550232639547883
+-2.734237093652736 -0.27038132138259985
+-0.781489242797317 1.1770705439911593
+-0.128534969307605 0.520676237083756
+1.5495421866152874 3.05785885027353
+2.0 2.0
+2.4786886612169354 4.129115522265128
+4.351910265810728 4.985181130449497
+}\regtabletwo
+\begin{marginfigure}
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{regression-dots}
+  \begin{tikzpicture}
+    \begin{axis}[width=1.2\linewidth,
+%                 height=0.5\linewidth,
+                 ticklabel style={font=\tiny},
+        				 major tick length=1pt,
+        				 minor tick length=0pt,
+                 grid=both,
+                 grid style={draw=gray!20},
+%                 major grid style={draw=gray!40},
+                 xtick={-6,-4,...,6},
+                 ytick={-6,-4,...,6},
+                 minor tick num=1,
+                 xlabel={$x$},
+                 ylabel={$y$},
+                 xlabel style={font=\small},
+                 ylabel style={font=\small},
+%                 xlabel style={at={(rel axis cs:1,0)}, anchor=south},
+%                 ylabel style={at={(rel axis cs:0,1)}, anchor=west,rotate=-90},
+                 xmin=-5.5, xmax=5.5,
+                 ymin=-5.5, ymax=5.5,
+                 enlargelimits=both,
+      					 axis lines=middle,
+                 axis line style={latex-latex},
+      ]
+
+      \addplot[only marks, mark size=0.3mm,fill=blue] table {\regtabletwo};
+      \addplot[thick, blue]  {1 + x};
+      \addplot[thick, red]  {-1 + 0.5*x};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:regr-data}%
+    A typical data set for regression (dots).
+    And possible linear regression models (blue and red lines).
+  }
+\end{marginfigure}
+In case of regression the data we use looks like the one 
+presented in Figure~\ref{fig:regr-data}.
+We have a continuous predictor $x$, and we want to predict the value $y$,
+where we have 10 observations (or data points, or training instances)
+represented by the dots in the figure.
+Our aim is to find a linear equation,
+a line like the ones presented in Figure~\ref{fig:linear-plane-example},
+that allows us to predict $y$ values for the future observations
+that are similar to the ones in the data set.
+We can view learning as choosing the best line
+among all possible lines.
+Figure~\ref{fig:regr-data} presents two candidate models
+with blue and red lines.
+Intuitively, the blue line
+is better than the red one.
+However, our aim is to formalize which models are better than the others,
+and find the best one given the data at hand.
+
+The most common approach for estimating model parameters is
+to define an \emph{error function}
+and find the parameter values that minimize the error on the training data.
+Figure~\ref{fig:regr-error} demonstrates the errors made by the two
+alternative models on the data presented in Figure~\ref{fig:regr-data}.
+It is clear that the sum of the errors (the vertical lines)
+for the model represented with the blue line is smaller,
+and we should prefer this one instead of the red one.
+\begin{marginfigure}%
+  \begin{tcolorbox}[boxsep=0pt,left=0pt,right=0pt,top=0pt,bottom=0pt]
+%  \tikzset{external/export next=false}%
+  \tikzsetnextfilename{regression-error-lines1}
+  \begin{tikzpicture}%
+    \begin{axis}[x=4.4mm,y=4.4mm,
+%                 height=0.5\linewidth,
+                 ticklabel style={font=\tiny},
+        				 major tick length=1pt,
+        				 minor tick length=0pt,
+                 grid=both,
+                 grid style={draw=gray!20},
+%                 major grid style={draw=gray!40},
+                 xtick={-6,-4,...,6},
+                 ytick={-6,-4,...,6},
+                 minor tick num=1,
+                 xlabel={$x$},
+                 ylabel={$y$},
+                 xlabel style={font=\small},
+                 ylabel style={font=\small},
+%                 xlabel style={at={(rel axis cs:1,0)}, anchor=south},
+%                 ylabel style={at={(rel axis cs:0,1)}, anchor=west,rotate=-90},
+                 xmin=-5.5, xmax=5.5,
+                 ymin=-5.5, ymax=5.5,
+                 enlargelimits=both,
+      					 axis lines=middle,
+                 axis line style={latex-latex},
+      ]
+
+      \addplot[only marks, mark size=0.3mm,fill=blue] table {\regtabletwo};
+      \addplot[thick, blue]  {1 + x};
+      \pgfplotstablegetrowsof{\regtabletwo}
+      \pgfmathsetmacro{\N}{\pgfplotsretval-1}
+      \foreach \i in {0,...,\N} {
+        \pgfplotstablegetelem{\i}{[index]0}\of\regtabletwo
+        \edef\x{\pgfplotsretval}
+        \pgfplotstablegetelem{\i}{[index]1}\of\regtabletwo
+        \edef\y{\pgfplotsretval}
+        \pgfmathsetmacro{\Y}{\x + 1}
+        \edef\temp{%
+          \noexpand\draw[blue] (\x, \y) -- (\x, \Y);%
+        }
+%        \draw[blue] (\x, \y) -- ($(\x, \x) + (0, 1)$);
+        \temp
+        \typeout{aaaaa \x{}  \y}
+      }
+    \end{axis}
+  \end{tikzpicture}\\
+  \end{tcolorbox}
+  \begin{tcolorbox}[boxsep=0pt,left=0pt,right=0pt,top=0pt,bottom=0pt]
+%  \tikzset{external/export next=false}
+  \tikzsetnextfilename{regression-error-lines2}
+  \begin{tikzpicture}
+    \begin{axis}[x=4.4mm,y=4.4mm,%width=1.3\linewidth,
+%                 height=0.5\linewidth,
+                 ticklabel style={font=\tiny},
+        				 major tick length=1pt,
+        				 minor tick length=0pt,
+                 grid=both,
+                 grid style={draw=gray!20},
+%                 major grid style={draw=gray!40},
+                 xtick={-6,-4,...,6},
+                 ytick={-8,-6,...,8},
+                 minor tick num=1,
+                 xlabel={$x$},
+                 ylabel={$y$},
+                 xlabel style={font=\small},
+                 ylabel style={font=\small},
+%                 xlabel style={at={(rel axis cs:1,0)}, anchor=south},
+%                 ylabel style={at={(rel axis cs:0,1)}, anchor=west,rotate=-90},
+                 xmin=-5.5, xmax=5.5,
+                 ymin=-5.5, ymax=5.5,
+                 enlargelimits=both,
+      					 axis lines=middle,
+                 axis line style={latex-latex},
+      ]
+
+      \addplot[only marks, mark size=0.3mm,fill=blue] table {\regtabletwo};
+      \addplot[thick, red]  {-1 + 0.5*x};
+      \pgfplotstablegetrowsof{\regtabletwo}
+      \pgfmathsetmacro{\N}{\pgfplotsretval-1}
+      \foreach \i in {0,...,\N} {
+        \pgfplotstablegetelem{\i}{[index]0}\of\regtabletwo
+        \edef\x{\pgfplotsretval}
+        \pgfplotstablegetelem{\i}{[index]1}\of\regtabletwo
+        \edef\y{\pgfplotsretval}
+        \pgfmathsetmacro{\Y}{0.5*\x - 1}
+        \edef\temp{%
+          \noexpand\draw[red] (\x, \y) -- (\x, \Y);%
+        }
+%        \draw[blue] (\x, \y) -- ($(\x, \x) + (0, 1)$);
+        \temp
+        \typeout{aaaaa \x{}  \y}
+      }
+    \end{axis}
+  \end{tikzpicture}
+  \end{tcolorbox}
+  \caption{\label{fig:regr-error}%
+    Demonstration of the errors made by the models represented by
+    blue (top) and the red (bottom) lines in Figure~\ref{fig:regr-data}.
+  }
+\end{marginfigure}
+So, to find the best linear regression line,
+we may look for the model parameters that minimize the sum of the lengths
+of the vertical line segments depicted in Figure~\ref{fig:regr-error}.
+For the $i^\text{th}$ data point $(x_{i}, y_{i})$ the error is simply
+the difference between the observed y-value, $y_{i}$
+and the model's prediction for $x_{i}$, which is simply $a + b x_{i}$.
+A typical notation for estimated values
+(in contrast to than real/observed ones)
+is to indicate it on the variable with a hat.
+Hence, we indicate the prediction of the model for data point $i$,
+as $\hat{y}_{i} = a + b x_{i}$,
+and the error (or \emph{residual}) in this case would be $y_{i} - \hat{y}_{i}$.
+Since we want this value to be lower for the whole data set,
+we want to minimize the sum of this error over all data points.
+However, error as formalized above will be negative
+for some of the training examples, and positive for others.
+As a result, minimizing the sum of this error is not useful.
+A reasonable quantity to minimize is the absolute value of the error,
+$\vert{}y_{i} - \hat{y}_{i}\vert$.
+However absolute value function does not have some of the properties
+that we desire while minimizing functions.
+The most commonly used error function for linear regression is
+the sum of squared errors, $(y_{i} - \hat{y}_{i})^{2}$.
+Which is a convenient function to minimize,
+and as we will revisit later,
+it yields the model that assigns maximum likelihood to the data
+under the assumption that the errors are normally distributed.
+
+In summary, a linear regression model is typically estimated from data
+by minimizing the error function 
+\begin{equation}\label{eq:simple-regression-err}
+  E(a,b) = \sum_{i} \left(y_{i} -
+            \underbrace{(a + b x_{i})}_{\hat{y}_{i}}
+        \right)^{2} .
+\end{equation}
+The formula is general.
+For a linear regression model with multiple predictors,
+using the vector notation described earlier,%
+\sidenote{The first element of the parameter vector, \vect{w}$_{0}$,
+  is the intercept, and the first element of the input vector $\vect{x}_{i}$
+  ($x_{i,0}$) is the constant \num{1}.
+}
+we simply write
+\begin{equation}\label{eq:regression-err}
+  E(\vect{w}) = \sum_{i} (y_{i} - \hat{y}_{i})^{2}\;,
+  \text{where } \hat{y}_{i} = \vect{w}\vect{x}_{i} .
+\end{equation}
+
+You should have to realized that
+we express the error function as a function of model parameters
+in the above formulations.
+Furthermore,
+as it is clear in Equation~\ref{eq:simple-regression-err} that
+the error function is a quadratic function (a polynomial of degree 2)
+of model parameters ($a$ and $b$).
+Quadratic functions are convex functions with a single global minimum.
+Taking the derivative of the error function,
+setting it to \num{0} and solving it results
+in the $a$ and $b$ values that gives us the minimum error on the training data.
+We will skip the derivation here,
+but present a version of the solution below.
+The best $a$ and $b$ values that minimumize the sum of squared errors are
+\begin{equation*}
+  b = \frac{\sigma_{xy}}{\sigma_{x}^{2}}
+    = r_{xy}\frac{\sigma_{y}}{\sigma_{x}}\quad \text{and}\quad
+  a = \bar{y} - b \bar{x} .
+\end{equation*}
+where $\bar{y}$ and $\bar{x}$ are the means of $\vect{x}$ and $\vect{y}$,
+$\sigma_{xy}$ is the covariance of $x$ and $y$,
+and $\sigma_{x}^{2}$ is the variance of $x$,
+and $r_{xy}$ is the correlation coefficient between $x$ and $y$.
+The important thing to note is that,
+the slope indicates the relation between $x$ and $y$.
+In particular, it is proportional to the covariance between the variables,
+or, as the second formulation of $b$ indicate,
+it is a scaled version of the correlation
+between the predictor and the outcome variable.
+
+\section{Least-squares regression as maximum-likelihood estimation}
+
+One of the reasons for using squared errors is the fact that
+sum of squared errors are mathematically convenient to work with.
+In a way,
+there is nothing special about minimizing sum of squared errors.
+One can also minimize some other measure of error,
+for example, sum of absolute values of the residuals.
+In fact, there are cases
+where such an alternative estimation method is desirable.%
+\sidenote{Particularly,
+least-squares regression is known to be sensitive to large residuals,
+especially if those are close to the extreme values of the predictor.
+Estimation of regression by minimizing absolute values for the residuals is
+more `robust' against the outliers,
+and often used as a robust alternative to least-squares regression.}
+The error function defined this way,
+e.g., unlike sum of absolute errors,
+is differentiable and convex.
+Hence,
+it allows us to find an analytic solution to the minimization problem.
+However,
+there is another fact that makes least-squares regression interesting.
+
+A general method of estimation in statistics and machine learning is
+the \emph{maximum-likelihood estimation} (MLE).
+The general idea of the MLE is this: given a family of models,
+we prefer the one that assigns the maximum likelihood
+to the observed (training) data.
+%In case of linear regression,
+%we consider output of the model as the expected value of the outcome
+%variable conditioned on the predictors, $\hat{y} = E[y|\vect{x}]$.
+In case of linear regression,
+to be able to assign a probability of a particular data point $(x_{i}, y_{i})$,
+we need to make an assumption about how the data around the regression line
+is distributed.
+If we assume that the residuals are distributed normally,
+which we know from central limit theorem
+to be a reasonable assumption in many problems,
+then likelihood assigned to a particular data point $(x_{i}, y_{i})$
+is $\mathcal{L}(\vect{w;x_{i}, y_{i}}) = p(x_{i}, y_{i}\given{}\vect{w})$.
+Note that we view likelihood as a function of model parameters.
+Informally, the model will assign high likelihood
+if the data point is close to its prediction,
+and as the data point farther away from the model's prediction,
+the likelihood (assigned by the model) decrease.
+Since we assume that each data point is independently sampled,
+we obtain the likelihood of the training data by multiplying
+the individual likelihoods of all the data points.
+As a result, we want to maximize
+\begin{equation*}
+  \mathcal{L}(\vect{w;\vect{x}, \vect{y}}) =
+      \prod_{i}  p(x_{i}, y_{i}\given{}\vect{w}) .
+\end{equation*}
+In practice, we prefer to work with logarithms,
+and minimization rather than maximization.%
+\sidenote{
+  Since logarithm of a variable increases and decreases (monotonically)
+  with the value of the variable,
+  maximizing or minimizing the logarithm will maximize or minimize
+  the variable itself.
+}
+Now, if we put all of the above together we want to minimize 
+the objective function $E(\vect{w})$
+
+\begin{equation*}
+  \begin{aligned}
+    \hat{\vect{w}} &=& \argmin_\vect{w} - \log \mathcal{L}(\vect{w})\\
+         &=& \argmin_\vect{w} - \log \prod_{i} \frac{%\\
+          e^{-\frac{(y_{i} - \hat{y}_{i})^{2}}{2\sigma^{2}}}}%
+          {\sigma\sqrt{2\pi}}\\
+         &=& \argmin_\vect{w} - \sum_{i} \log e^{-\frac{(y_{i}%
+                  - \hat{y}_{i})^{2}}{2\sigma^{2}}} -
+           \log {\sigma\sqrt{2\pi}}\\
+         &=& \argmin_{w} \sum_{i} (y_{i} - \hat{y}_{i})^{2}.
+  \end{aligned}
+\end{equation*}
+
+The derivation above skips over some details,
+and it is not essential to follow all the steps for our purposes.
+However, what it tells us it that if we assume
+that the residuals are distributed normally,
+the least-squares solution is also the maximum likelihood solution.
+
+\section{Measuring success}
+
+For any machine learning system,
+we need a way to measure its success.
+Remember, however, our aim is to generalize,
+and predict new data correctly rather doing well on the training set.
+We will leave this issue aside for now,
+and concentrate on the measures we use to assess the success of the model.
+
+The error function we use during estimation
+provides a clear metric of success.
+The smaller the error, the better the model.
+In case of regression, the error we minimize is
+the sum of squared error (SSE).
+However, this sum depends on the size of the data it is calculated on.
+Hence, we want to take the effect of the data size out,
+so that two systems that are tested on different data sets should be comparable.
+One can easily achieve this by taking the mean of the SSE, MSE.
+However, it is often desirable to measure the error
+in the same units as our data.
+For example,
+if our task is to evaluate a regression model
+predicting grades of student essays,
+we want to know error in number of grade points on average,
+rather than its square.
+Hence, the most error common measure to check and report is
+the root mean square error (RMSE),
+which is defined as
+
+\begin{equation*}
+    \text{RMSE} = \sqrt{\frac{1}{n} \sum_{i}^{n} (y_{i} - \hat{y}_{i})^{2}} .
+\end{equation*}
+
+
+Another measures, that measures success rather than error,
+is \emph{coefficient of determination} ($R^{2}$).
+$R^{2}$ is the ratio of conditional variance
+(the variance around model prediction) divided
+by the variance of the unconditional mean of the outcome variable $y$.
+As expected, the coefficient of determination is also related to RMSE.
+Put more formally,
+
+\begin{equation}\label{eq:r-squared}
+  R^{2} = \frac{\sum_{i}^{n}(\hat{y}_{i} - \bar{y})^{2}}%
+           {\sum_{i}^{n}(y_{i} - \bar{y})^{2}}
+       = 1 - \left(\frac{RMSE}{\sigma_{y}}\right)^{2} .
+\end{equation}
+
+\begin{marginfigure}
+  \tikzsetnextfilename{r2-explained-variance}
+%  \tikzset{external/export next=false}
+  \begin{tikzpicture}[x=3mm,y=3mm]
+    \coordinate (xlim) at (15,0);
+    \coordinate (ylim) at (0,10);
+
+    \coordinate (y)    at (0,8);
+    \coordinate (yhat) at (0,5);
+    \coordinate (ybar) at (0,2);
+
+    \coordinate (x) at (8,0);
+
+    \coordinate (intercept) at (0,1);
+
+    \draw[thick,->] (0,0) -- (xlim); % x-axis
+    \draw[thick,->] (0,0) -- (ylim); % y-axis
+
+    \draw[thick,dotted] (ybar) -- ($(ybar) + (xlim)$); 
+
+    \draw[thick,dashed] (x) -- ($(x) + (ybar)$); 
+    \draw[thick,dashed,blue] ($(x) + (ybar)$) -- ($(x) + (yhat)$);
+    \draw[thick,dashed,red] ($(x) + (yhat)$) -- ($(x) + (y)$);
+
+    \draw[thick,dashed] (y) -- ($(y) + (x)$);
+    \draw[thick,dashed] (yhat) -- ($(yhat) + (x)$);
+
+    \node[anchor=east] at (ybar) {$\bar{y}$};
+    \node[anchor=east] at (y) {$y$};
+    \node[anchor=east] at (yhat) {$\hat{y}$};
+    \node[anchor=north] at (x) {$x$};
+
+    \draw[thick,color=green] (intercept) -- ($(xlim) + (intercept) + (0,7.5)$); % regression line
+
+    \draw[fill=black] ($(y) + (x)$) circle (0.1);
+    \draw[fill=black] ($(yhat) + (x)$) circle (0.1);
+    \draw[fill=black] ($(ybar) + (x)$) circle (0.1);
+
+    \draw[thick,decorate,decoration={brace,amplitude=5mm,aspect=0.6}] 
+        ($(ybar) + (x)$) -- ($(y) + (x)$) 
+            node [font=\scriptsize,black,midway,yshift=2mm,xshift=-5mm,anchor=east] {Total variation};
+    \draw[thick,red,decorate,decoration={brace,amplitude=3mm}] 
+        ($(y) + (x)$) -- ($(yhat) + (x)$) 
+            node [font=\scriptsize,black,midway,xshift=3mm,anchor=west,rotate=26.6]
+            {\textcolor{red}{Unexplained variation}};
+    \draw[thick,blue,decorate,decoration={brace,amplitude=3mm}] 
+        ($(yhat) + (x)$) -- ($(ybar) + (x)$)
+            node [font=\scriptsize,black,midway,xshift=3mm,anchor=west,rotate=26.6]
+            {\textcolor{blue}{Explained variation}};
+
+%    \node at ($(x) + (0, -2)$) {\small{}\begin{tabular}{ccccc}%
+%    Total variation &=& \textcolor{red}{Unexplained variation}%
+%                    &+& \textcolor{blue}{Explained variation}\\
+%    $y - \bar{y}$   &=& $\textcolor{red}{y - \hat{y}}$%
+%                    &+& $\textcolor{blue}{\hat{y} - \bar{y}}$\\
+%    \end{tabular}
+%    };
+  \end{tikzpicture}
+  \caption{\label{fig:r2-explained-variance}%
+    A visualization of the explained and unexplained variation 
+    in regression.
+  }
+\end{marginfigure}
+The $R^{2}$ is unitless,
+and can be interpreted as the variation in the data explained by the model.
+This is depicted in Figure~\ref{fig:r2-explained-variance}.
+The actual observation for $x$ in the figure is denoted with $y$,
+while model's prediction, conditional mean of $y$ given $x$, is $\hat{y}$.
+The unconditional mean of the outcome variable is denoted with $\bar{y}$.
+Total variation (for this data point) refers to the distance of the
+observation from the mean $\bar{y}$.
+In a way, if we did not know $x$, $\bar{y}$ would be our best guess.
+For this particular data point,
+knowing $x$ helps the model to make a better prediction.
+The dashed line segment drawn in blue is the amount the model helps.
+Yet, we still have some error, the `unexplained variation'
+marked with red in the figure.
+The $R^{2}$ is the ratio of the explained variation to the total variation.
+For a simple regression model, $R^{2}$ is
+the square of the correlation coefficient between $x$ and $y$.
+However, as you can also see from Equation~\ref{eq:r-squared},
+$R^{2}$ can be calculated for a regression model
+with any number of predictors,
+and the interpretation stays the same.
+
+\todo[inline]{explained + unexplained = total}
+
+\section{Linearity in linear regression}
+
+Linear regression, as we discussed so far is suited for problems
+where the relation between the predictors and outcome variable is linear.
+Sometimes, however, the relation is known to be non-linear.
+For example, if we want to predict some cognitive ability through lifetime,
+it is likely that it will improve first during childhood, 
+and then deteriorate in later life by by aging.
+Similarly, rate of increase or decrease of the outcome
+conditioned on the predictor(s) may not be constant.
+Figure~\ref{fig:polyreg-data} shows such a data set,
+with the linear regression fit as described above.
+\pgfplotstableread{
+x y
+0.5727110368976344 2.262858935182254
+0.9634055485586488 1.3281832189280438
+1.5556360699117613 2.3486974457015046
+1.9900182511896758 0.4375565355255524
+2.4303402304800867 1.646738193538201
+3.070352147996859 0.6872357895392611
+3.5612618861191074 1.464815938440995
+3.9230151794762342 2.4518005828663334
+4.581083308356649 2.5886971139456314
+4.998632749642441 0.8054002054204563
+5.4105725068971395 4.515796432043562
+5.949085370772421 6.119424968016888
+6.520699711925299 4.112662128172257
+6.971396642781029 6.228999139143287
+7.457306831227848 6.354873874990683
+7.94506922070538 7.06677795633609
+8.593071700858667 9.18368275563572
+9.057938139307339 9.790270091003883
+9.584280750407217 12.179172670992996
+9.952201618780924 13.977836292388178
+}\polyregtbl
+\begin{marginfigure}
+  \tikzsetnextfilename{poly-regression-dots}
+%  \tikzset{external/export next=false}
+  \begin{tikzpicture}
+    \begin{axis}[width=1.2\linewidth,
+%                 height=0.5\linewidth,
+                 ticklabel style={font=\tiny},
+        				 major tick length=1pt,
+        				 minor tick length=0pt,
+                 grid=both,
+                 grid style={draw=gray!20},
+%                 major grid style={draw=gray!40},
+%                 xtick={-6,-4,...,6},
+%                 ytick={-6,-4,...,6},
+%                 minor tick num=1,
+                 xlabel={$x$},
+                 ylabel={$y$},
+                 axis y line=left,
+                 axis x line=bottom,
+                 xlabel style={font=\scriptsize,at={(rel axis cs:1,0)}, anchor=south east},
+                 ylabel style={font=\scriptsize,at={(rel axis cs:0,1)}, anchor=north west,rotate=-90},
+%                 xmin=-5.5, xmax=5.5,
+%                 ymin=-5.5, ymax=5.5,
+                 enlargelimits=false,
+%      					 axis lines=middle,
+%                 axis line style={latex-latex},
+      ]
+
+      \addplot[only marks, mark size=0.3mm,fill=blue] table {\polyregtbl};
+      \addplot[no marks,thick,red,domain=0:10]
+        {1.20320989*x-1.54457679};
+%      \addplot[thick, blue]  {1 + x};
+%      \addplot[thick, red]  {-1 + 2*x};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:polyreg-data}%
+    A typical data set for regression (dots).
+    And possible linear regression models (blue and red lines).
+  }
+\end{marginfigure}
+Although the linear equation found does not seem too bad
+($R^{2} = \num{0.36441556209435455}$),
+it is clear that a curve could be a better fit than a line.
+In other words, the relation between $x$ and $y$ seems non-linear.
+
+Despite the word `linear' in the name,
+the estimation method above works perfectly well
+for non-linear combinations of the input variable(s) as well.
+The important restriction about the linearity is
+about the model parameters, $w$.
+As long as the model parameters are linear,
+we are free to add non-linear (combinations)
+of the input variables as predictors in a linear regression model.
+\emph{Polynomial regression} is a particular way
+to estimate non-linear regression models,
+where we add higher degree polynomial terms.
+For example, in our example with a single single variable,
+formulated as $\hat{y} = w_{0} + w_{1} x$,
+we can add the square of the predictor,
+which would give us the model $\hat{y} = w_{0} + w_{1} x + w_{2} x^{2}$.
+For the estimator, the higher order term $x^{2}$ is just another predictor,
+and the parameters can be estimated as usual.
+
+Figure~\ref{fig:polyreg-examples} presents examples of polynomial regression
+fit to the data from Figure~\ref{fig:polyreg-data}.
+The curves represent polynomials of order 2 and 7
+(as well as the line showing linear,  polynomial order 1, regression).
+In general, one can use any nonlinear functions of the input variables
+for fitting a linear regression model.
+This includes functions involving combinations of input variables
+when there are more than one.
+For example, if we had two predictors, $x_{1}$ and $x_{2}$,
+a possible nonlinear combination could be $x_{1}\times{}x_{2}$.
+Non-linearity is a concept we will revisit in more detail later.
+\begin{marginfigure}
+  \tikzsetnextfilename{poly-regression-curves}
+%  \tikzset{external/export next=false}
+  \begin{tikzpicture}
+    \begin{axis}[width=1.2\linewidth,
+                 ticklabel style={font=\tiny},
+        				 major tick length=1pt,
+        				 minor tick length=0pt,
+                 grid=both,
+                 grid style={draw=gray!20},
+%                 major grid style={draw=gray!40},
+%                 xtick={-6,-4,...,6},
+%                 ytick={-6,-4,...,6},
+%                 minor tick num=1,
+                 xlabel={$x$},
+                 ylabel={$y$},
+                 axis y line=left,
+                 axis x line=bottom,
+                 xlabel style={font=\scriptsize,at={(rel axis cs:1,0)}, anchor=south east},
+                 ylabel style={font=\scriptsize,at={(rel axis cs:0,1)}, anchor=north west,rotate=-90},
+%                 xmin=-5.5, xmax=5.5,
+                 ymin=-1, ymax=12,
+                 enlargelimits=false,
+%      					 axis lines=middle,
+%                 axis line style={latex-latex},
+                 legend style={font=\tiny,fill=none,draw=none},
+                 legend cell align=left,
+                 legend pos=north west,
+      ]
+
+      \addplot[forget plot,only marks, mark size=0.3mm,fill=blue] table {\polyregtbl};
+      \addplot[no marks,thick,gray,domain=0:10]
+        {1.20320989*x-1.54457679};
+      \addplot[no marks,thick,blue,domain=0:10]
+        {0.2054669*x^2 - 0.96491337*x + 2.46798245};
+%      \addplot[no marks,thick,red,domain=0:10]
+%        {-1.12017240e-04*x^6 + 5.60536133e-03*x^5 - 9.09929189e-02*x^4 + 0.636242801*x^3 - 1.76086630*x^2 + 1.38531451*x +1.71594672};
+      \addplot[no marks,thick,red,domain=0:10]
+        {-0.000175*x^7+0.006345*x^6-0.089849*x^5+0.631182*x^4-2.321372*x^3+4.605587*x^2-5.002267*x+3.878074};
+%      \addplot[thick, blue]  {1 + x};
+%      \addplot[thick, red]  {-1 + 2*x};
+      \legend{linear ($R^{2} = \num{0.36441556209435455}$),
+              order 2 ($R^{2} = \num{0.959232988665851}$),
+              order 7 ($R^{2} = \num{0.9707392468186228}$)}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:polyreg-examples}%
+    Example polynomial regression models fit to the same data in Figure~\ref{fig:polyreg-data}.
+  }
+\end{marginfigure}
+
+\section{Overfitting}
+
+In the polynomial regression examples Figure~\ref{fig:polyreg-examples},
+we see that increasing the order of polynomial increases
+the model's fit to the data
+(as measured by the $R^{2}$ on the training set)
+However, the highest order polynomial seems to not to generalize,
+but learn some peculiarities of the training set.
+Intuitively,
+the second-order polynomial is a better, more general, fit to this data.
+
+\pgfplotstableread{
+rank r2 r2t rmse rmset 
+1 0.36441556209435455 0.482786446542697 3.1008196933738836 2.3246558898207397
+2 0.959232988665851 0.8987704711379588 0.7853157780457705 1.3760626503881122
+3 0.9593265792557829 0.8192668696129058 0.7844138183942836 1.3741767993540108
+4 0.966530836510884 0.8036869549490069 0.7115612920361152 1.4321823138517469
+5 0.9706746719761565 0.8002384326577969 0.6660568902915007 1.4447067268089968
+6 0.9707392468186228 0.8006235548536009 0.6653231521676318 1.4433134231323919
+7 0.9715652675816853 0.8034171846678637 0.6558650050732356 1.4331660171607896
+8 0.9717081088602929 0.7931176325385465 0.6542155689780033 1.4702306261297846
+9 0.9720801709653021 0.7923851849797712 0.6498995905275925 1.4728309332348324
+10 0.9736329887647648 0.7534609335938114 0.6315683212581569 1.604968821236729
+}\traintesttbl
+\begin{marginfigure}
+  \tikzsetnextfilename{r2-train-test}
+%  \tikzset{external/export next=false}
+  \begin{tikzpicture}
+    \begin{axis}[width=1.1\linewidth,
+                 ticklabel style={font=\tiny},
+        				 major tick length=1pt,
+        				 minor tick length=0pt,
+                 grid=both,
+                 grid style={draw=gray!20},
+%                 major grid style={draw=gray!40},
+%                 xtick={-6,-4,...,6},
+%                 ytick={-6,-4,...,6},
+%                 minor tick num=1,
+                 xlabel={polynomial order},
+                 ylabel={$r^{2}$},
+                 axis y line=left,
+                 axis x line=bottom,
+                 xlabel style={font=\scriptsize},
+                 ylabel style={font=\scriptsize,at={(rel axis cs:0,1)}, anchor=south west,rotate=-90},
+                 xmin=1, xmax=10,
+                 ymin=0.7, ymax=1.0,
+                 enlargelimits=false,
+%      					 axis lines=middle,
+%                 axis line style={latex-latex},
+                 legend style={font=\tiny,fill=none,yshift=-8mm,draw=none},
+                 legend cell align=left,
+                 legend pos=north east,
+                 axis y discontinuity=crunch,
+      ]
+
+      \addplot[mark size=0.3mm] table[x=rank,y=r2] {\traintesttbl};
+      \addplot[red, mark size=0.3mm] table[x=rank,y=r2t] {\traintesttbl};
+      \legend{train, test};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:train-test-r2}%
+    Progression of training and test errors in polynomial regression,
+    as the order of the polynomial increased.
+  }
+\end{marginfigure}
+To demonstrate the effect Figure~\ref{fig:train-test-r2} plots the
+models fit ($R^{2}$) to the training set,
+as well as a test set obtained from the same distribution.
+As the degree of the polynomial increases,
+the fit to the training set increases
+(although only slightly after degree 2).
+However, the fit to the test set starts decreasing.
+Even though we demonstrated this with polynomial regression
+with different order of polynomials,
+this is a general phenomenon called \emph{overfitting}.
+As the model complexity increases
+(e.g., with inclusion of more predictors, and hence, more parameters)
+the chances for overfitting increase.
+The model starts learning the noise in the training set
+more than the generalizations that are helpful outside the training data.
+Next, we will discuss a general method for fighting overfitting.
+
+\section{Regularization}
+
+As we have already repeated a few times,
+our aim is not to get the best results on the training data
+(for the values of outcome variable we already know).
+The aim is to find a general solution that works for new data instances
+for which we do not know the value of the outcome variable.
+As a result, overfitting is something we need to avoid.
+Since overfitting is likely when the model is more complex,
+one option is to select models that are simpler
+-- but not simpler than needed.
+There are a number of measures that help with model selection
+which seek a balance between the success of the model on the training
+data and number of parameters.%
+\sidenote{We will not discuss these metrics of model selection here,
+you are recommended to revise some of these metric.
+A well-known criterion used particularly in statistics
+is \href{https://en.wikipedia.org/wiki/Akaike_information_criterion}{Akaike information criterion}.}
+However, in ML and NLP, we often deal with a very large number of parameters,
+and the model selection process becomes tedious at best.
+Here we are going to discuss a more general technique called
+\emph{regularization} for preventing overfitting.
+
+The idea with regularization is to modify the error function
+we minimize such that
+as well as parameter values that reduce the training error,
+we prefer parameter values from a restricted set,
+which leads to simpler models.
+This way, we do not simplify our models by reducing the number of parameters,
+but by setting a preference towards certain parameter values.
+Instead of minimizing the error term in Equation~\ref{eq:regression-err},
+we extend the objective function with a term that prefers
+smaller weight vectors.
+\begin{equation}\label{eq:regression-obj-l2}
+  J(\vect{w}) = \sum_{i} (y_{i} - \hat{y}_{i})^{2} + \lambda \norm{\vect{w}}
+\end{equation}
+where $\lambda$ is a constant,
+and $\norm{\vect{w}}$ is the L2 norm of the weight vector
+(excluding the intercept term).
+
+Equation~\ref{eq:regression-obj-l2} defines the \emph{L2 regularization}
+where the estimation procedure puts a preference towards coefficient vectors
+with small L2 norms.
+Intuitively, to make L2 norm of the vector smaller,
+the estimation procedure will push coefficients
+that are not strongly supported by the data to smaller values.
+In fact, most effects of overfitting result in very large coefficients,
+as it requires small changes in the data to have large effects on the output.
+As a result regularized estimation simplifies the model in a `soft' manner,
+rather than simplifying the model by explicitly removing predictors.
+L2 regularized regression is also called \emph{ridge regression}.
+
+Equation~\ref{eq:regression-obj-l2} can also be expressed in terms of
+constrained optimization.
+Minimizing $J(w)$ in Equation~\ref{eq:regression-obj-l2} 
+equivalent finding the parameter values that minimize sum of squared errors
+with subject to the constraint that the L2 norm of the
+parameter vector is smaller than a constant $s$. That is, we minimize
+\begin{equation}\label{eq:l2-constraint}
+  \sum_{i} (y_{i} - \hat{y}_{i})^{2} \quad
+  \text{with constraint}\quad \norm{\vect{w}} < s
+\end{equation}
+
+Another popular regularization methods is \emph{L1 regularization},
+where instead of the L2 norm, we add the L1 norm of the parameter vector
+to the objective to be minimized.
+L1 regularized regression is also called \emph{lasso}.
+
+The main difference between L1 regularization and L2 regularization is that
+L1 regularization tends to set some of the coefficients to \num{0},
+while L2 regularization results in small but non-zero coefficients.
+A demonstration of this difference is presented in Figure~\ref{fig:l1-l2}.
+\begin{marginfigure}[-5cm]
+  \centering
+  \tikzsetnextfilename{l1-reg-visualization}
+%      \tikzset{external/export next=false}
+  \begin{tikzpicture}
+    \draw[thick, <->] (-2.5, 0) -- (2.5, 0) node[anchor=north] {$w_{1}$};
+    \draw[thick, <->] (0,-2.5) -- (0, 2.5) node[anchor=east] {$w_{2}$};
+    \path[fill=blue,opacity=0.2]
+      (0, 1) -- (1, 0) -- (0, -1) -- (-1, 0) -- cycle;
+    \node[blue,anchor=north,inner sep=1pt] at (1,0) {$s$};
+    \node[blue,anchor=north east,inner sep=1pt] at (-1,0) {$-s$};
+    \node[blue,anchor=east,inner sep=1pt] at (0,1) {$s$};
+    \node[blue,anchor=east,inner sep=1pt] at (0,-1) {$-s$};
+
+    \draw[fill=red!80,opacity=0.5] 
+      (0.75,1.5) circle (0.3);
+    \draw[fill=red!70,opacity=0.5] 
+      (0.75,1.5) circle (0.5);
+    \draw[fill=red!50,opacity=0.5] 
+      (0.75,1.5) circle (0.7);
+    \draw[fill=red!40,opacity=0.5] 
+      (0.75,1.5) circle (0.9);
+    \draw[fill=red] (0.75,1.5) circle (0.05);
+
+    \node[inner sep=0pt,minimum size=1mm,fill=green]
+      at (0,1) {};
+
+    \node[coordinate] (trnmin) at (0.75,1.5) {};
+
+    \node[font=\footnotesize,anchor=north east] (trnlab) at (2.7,2.7)
+      {training min.};
+    \draw[->,thick] (trnlab.south) to[out=270,in=0]
+        ($(trnmin.north east) + (0.05,0)$);
+    \node[font=\footnotesize,anchor=south west] (constr) at (-2.6,-2.6)
+      {constraint};
+    \draw[->,thick] (constr.north) to[out=90,in=180] (225:0.707);
+  \end{tikzpicture}\\
+%      \tikzset{external/export next=false}
+  \tikzsetnextfilename{l2-reg-visualization}
+  \begin{tikzpicture}
+    \draw[thick, <->] (-2.5, 0) -- (2.5, 0) node[anchor=north] {$w_{1}$};
+    \draw[thick, <->] (0,-2.5) -- (0, 2.5) node[anchor=east] {$w_{2}$};
+    \path[fill=blue,opacity=0.2] (0, 0) circle (1);
+    \node[blue,anchor=north west,inner sep=1pt] at (1,0) {$s$};
+    \node[blue,anchor=north east,inner sep=1pt] at (-1,0) {$-s$};
+    \node[blue,anchor=south east,inner sep=1pt] at (0,1) {$s$};
+    \node[blue,anchor=north east,inner sep=1pt] at (0,-1) {$-s$};
+    \draw[fill=red!80,opacity=0.5]
+      (0.75,1.5) circle (0.3);
+    \draw[fill=red!70,opacity=0.5]
+      (0.75,1.5) circle (0.5);
+    \draw[fill=red!50,opacity=0.5]
+      (0.75,1.5) circle (0.7);
+    \draw[fill=red]  (0.75,1.5) circle (0.05);
+    \node[coordinate] (trnmin) at (0.75,1.5) {};
+
+    \node[font=\footnotesize,anchor=north east] (trnlab) at (2.7,2.7)
+      {training min.};
+    \draw[->,thick] (trnlab.south) to[out=270,in=0]
+        ($(trnmin.north east) + (0.05,0)$);
+    \node[font=\footnotesize,anchor=south west] (constr) at (-2.6,-2.6)
+      {constraint};
+    \draw[->,thick] (constr.north) to[out=90,in=180] (225:1);
+    \node[inner sep=0pt,minimum size=1mm,fill=green]
+      at ($(0,0)!1cm!(trnmin)$) {};
+  \end{tikzpicture}
+  \caption{\label{fig:l1-l2}%
+    Visualization of L1 and L2 regularization.
+  }
+\end{marginfigure}
+The figures depicts the constraints defined
+(as in Equation~\ref{eq:l2-constraint}) by L1 and L2 regularization
+as blue regions,
+and the training objective as as a red circle whose smaller values
+are represented with darker shades
+in a space of two parameters.
+Constraint space defined by L1 regularization is `pointy'
+(a square in 2D, a (hyper)cube in higher dimensions).
+Hence the minimum value of the training objective
+that also satisfies the constraint is likely to be on one of the
+corners of the hypercube, which will result in the corresponding
+weight values to be \num{0}.
+The L2 regularization constraint defines a hypersphere,
+which will more likely to meet with the training objective
+in point with non-zero parameter values.
+
+We did delayed the discussion of $\lambda$ in 
+Equation~\ref{eq:regression-obj-l2}.
+$\lambda$ is a \emph{hyperparameter} that determines
+the strength of the regularization.
+Higher $\lambda$ values will result in stronger regularization.
+Estimation procedure will pay more attention to reducing
+the norm of the weight vector
+(or, equivalently the area/volume of the constraint will be smaller).
+Lower values will result in more attention to reducing training error.
+The optimum value of $\lambda$ depends on the problem and the data.
+As a result it needs to be determined empirically.
+We will return to topic of tuning hyperparameters in more detail later.
+For now, it is important to note that to determine the best
+value of $\lambda$ we need to leave aside part of the data,
+often referred to as \emph{development set}. 
+In this scenario, we train our model on the training set multiple times
+with different $\lambda$ values,
+and pick the lambda value that yields best results on the development set.
+
+\section{Gradient descent}
+
+So far, we worked with models for which we can find
+the best parameter values through an analytic (closed form) solution.
+That is,
+we take the derivative of the function with respect to 
+the weights,
+set it to \num{0} and solve the resulting equation(s)
+to find the minimum point of the error function.
+When we have more than one parameters,
+we want the gradient vector,
+the partial derivatives with respect to each parameter to be \num{0}.
+Otherwise the procedure is the same.
+
+Although there are analytic solutions for the regression model
+we discussed in this lecture (including with L1 and L2 regularization),
+an analytic solution not always guaranteed
+for most models we are interested in. 
+In that case, we apply a search based strategy
+to find the values of parameters that yield the minimum error.
+The general procedure that searches
+for the minimum of the error function,
+is called the \emph{gradient descent}.
+
+
+
+\begin{marginfigure}[-5cm]
+  \centering
+%  \tikzset{external/export next=false}%
+  \tikzsetnextfilename{gradient-1d}
+  \begin{tikzpicture}
+    \begin{axis}[ticks=none,
+                 width=1.2\linewidth,
+                 ylabel={$E(w)$},
+                 xlabel={$w$},
+%                 ylabel style={font=\scriptsize},
+                 ylabel style={font=\scriptsize,at={(rel axis cs:0,1)}, anchor=south west,rotate=-90},
+                 xlabel style={font=\scriptsize,at={(rel axis cs:1,0)}, anchor=south},
+                 axis y line=left,
+                 axis x line=bottom,
+                 ymin=0,
+%                 axis lines=center,
+%                 enlargelimits=true,
+%                 axis line style={latex-latex},
+    ]
+      \addplot[
+        domain=-5.5:5.5,
+      ]
+      {x*x + 1};
+      \addplot[quiver={u=-2*x, 
+                       v=0,
+                       scale arrows=0.3,
+               },
+               blue!50,
+               -stealth,
+               samples=11]
+      {x*x + 1};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\label{fig:gradient-1d}%
+    The negative of the derivatives on a quadratic curve.
+  }
+\end{marginfigure}
+\begin{marginfigure}
+  \centering
+%      \tikzset{external/export next=false}%
+      \tikzsetnextfilename{gradient-2d}
+      \begin{tikzpicture}
+        \begin{axis}[
+%            view={45}{45},
+%            view/h=45,
+            width=1.2\linewidth,
+            ticks=none,
+            zlabel={$E(w)$},
+            xlabel={$w_{1}$},
+            ylabel={$w_{2}$},
+          ]
+          \addplot3[mesh,
+                    domain=-2:2,
+                    ticks=none,
+          ]
+          {
+            - exp(-x^2-y^2)
+          };
+          \node at (axis cs:0,10) {X};
+        \end{axis}
+      \end{tikzpicture}\\[2mm]
+%      \tikzset{external/export next=false}%
+      \tikzsetnextfilename{gradient-2d-contour}
+      \begin{tikzpicture}
+        \begin{axis}[
+    %        view={45}{45},
+    %        view/h=45,
+            view={0}{90},
+            width=1.2\linewidth,
+            ticks=none,
+            xlabel={$w_{2}$},
+            ylabel={$w_{1}$},
+          ]
+          \addplot3[contour gnuplot={
+                      labels=false,
+                      number=5,
+                    },
+                    domain=-2:2,
+                    ticks=none,
+          ]
+          {
+    %%        - x * exp(-x^2-y^2)
+            - exp(-x^2-y^2)
+          };
+         \addplot3[blue!40, 
+                   domain=-2:2,
+                   quiver={u={exp(0-x^2-y^2)*(0-2*x)},
+                           v={exp(0-x^2-y^2)*(0-2*y)},
+                           scale arrows=0.3,},
+                   -stealth,samples=15] 
+        {- exp(-x^2-y^2)};
+        \end{axis}
+      \end{tikzpicture}
+  \caption{\label{fig:gradient-1d}%
+    A quadratic error curve in 3D (top),
+    and the gradients at each point (bottom)
+  }
+\end{marginfigure}
+Gradient relies on the fact that the gradient of a function
+indicate the largest direction of increase
+on the surface defined by the function.
+Figure~\ref{fig:gradient-1d} presents a quadratic error function
+of a single variable (parameters) with its negated derivatives.
+The arrows point to the direction of the minima,
+as well as indicating the steepness of the curve at that point.
+Both the direction and the magnitude of the gradient
+are helpful in estimating a model's parameters using gradient descent.
+Since the demonstration in Figure~\ref{fig:gradient-1d} includes
+only a single variable, the gradient vectors are one dimensional.
+With more than one parameter the same idea holds,
+the gradient vectors and the error surface will be multi dimensional.
+Figure~\ref{fig:gradient-1d} presents a similar error function
+for two parameters, and the samples of gradient vectors
+in the parameter space.
+
+Gradient descent starts with a random point in the parameter space,
+setting the parameter vector to a random value,
+and updates the parameter vector iteratively 
+in the opposite direction of the gradient,
+until we rich the minimum point where the gradient vector is \num{0}.
+Since reaching the exact minimum is highly unlikely,
+in practice, the search stops when the magnitude of the gradient is 
+smaller than a small constant.
+
+Formally this is an iterative search procedure where
+we update the parameter vectors at each step $i$ according to 
+\begin{equation}
+  \vect{w_{i}} \leftarrow \vect{w}_{i-1} - \eta \nabla{}E(\vect{w}_{i-1}) .
+\end{equation}
+To make it more concrete, this would translate to 
+\begin{equation*}
+  (a_{i}, b_{i}) \leftarrow (a_{i-1}, b_{i-1}) - \eta \nabla{} \sum_{j} \left(y_{j} - (a_{i-1} + b_{i-1} x_{j})\right)^{2}
+\end{equation*}
+for simple linear regression.%
+\sidenote{Note that for every step of the procedure
+  we need to iterate over all the data set,
+  which may be computationally expensive for large data sets.
+  In more complex systems, as we will introduce later,
+  updates based on smaller parts of the data generally leads
+  to faster (and better) solutions.
+}
+In words, we update the parameter vector $(a, b)$
+in the reverse direction of the gradient of the sum of squared residuals,
+proportional to the magnitude of the gradient.
+This means the gradient descend will take larger steps
+towards the minimum if the surface of the error function is steep,
+and smaller steps if it is relatively flat,
+which is likely when we are closer to the minima for a convex function.
+The multiple $\eta$ in the above formulas is called the \emph{learning rate}.
+It is yet another hyperparameter that depends on the problem and the data set.
+If it is set too low, the procedure will converge slowly,
+if it is set too high, there is the risk of overshooting,
+skipping over the minimum point (possibly back-and-forth)
+and not being able to converge to it.%
+\sidenote{For simpler systems reasonable defaults for learning rate generally work fine.
+For other, more complex systems there are methods that
+modify the learning rate during training }
+
+Gradient descend is an important estimation method
+used in many modern machine learning methods.
+We will return to it, and introduce some of the variations during this course.
+
+\section{A worked out example}
+
+The above discussion of estimation may feel all too overwhelming,
+and keeping up with the all the notation and concepts may be difficult.
+Now we go through a fully worked-out example,
+by estimating a simplified regression model
+for the small data set in Table~\ref{tbl:reg-sample},
+first analytically,
+then using gradient descent.
+For simplicity, we will assume that we already know
+that the intercept is \num{0}.
+This leaves only a single parameter, the slope to estimate.
+The regression equation becomes $y = bx$.
+\begin{margintable}
+  \caption{\label{tbl:reg-sample}%
+    A small data set for demonstration of regression.
+  }
+  \centering
+  ~\\[1mm]
+  \begin{tabular}{lSS}
+    \toprule
+    index & {x} & {y} \\
+    \midrule
+    1 & -1.0 & -1.02 \\
+    2 &  0.0 & -0.15 \\
+    3 &   1.0 &  1.04 \\
+    \bottomrule
+  \end{tabular}
+\end{margintable}
+
+\subsection{The analytic solution}
+
+To find the best parameter $b$,
+we need to find the $b$ value that minimizes the error.
+Using the least-squares error our error function is
+\begin{equation*}
+  \sum_{i} (y_{i} - b x_{i})^2
+\end{equation*}
+Taking it's derivative with respect to $b$, we obtain
+\begin{equation*}
+  \sum_{i=1}^{3} 2 x^{2}_{i}b - 2 y_{i} x_{i}
+  = \underbrace{2b - 2.04}_{i=1} + \underbrace{0}_{i=2} + \underbrace{2b - 2.08}_{i=3}
+  = 4b - 4.12
+\end{equation*}
+If we set $4b - 4.12 = 0$ and solve it,
+we will arrive at the best $b$ value for leas squares regression,
+which is 1.03 for this data set.
+
+\subsection{Gradient descent}
+
+Applying gradient descent for a problem with a closed form solution
+does not make much sense.
+However, we will do it for the sake of demonstration anyway.
+Now, we assume that we can take the derivative of the error function,
+as we did above, but we do not know how to solve it analytically.
+For the gradient descent solution,
+we need to set our learning rate
+and a small number at which we stop iterating.
+
+Figure~\ref{fig:gradient-descent-demo} demonstrates the 
+gradient descent run on our toy problem.
+For this demonstration we set the learning rate to \num{0.2},
+and stopping criterion as the derivative being smaller than \num{0.1}.
+At first step, we initialize the $b$ value `randomly' to \num{4}.
+The derivative of the error function at this point
+turns out to be \num{11.879999999999999}.
+We multiply this number with our learning rate,
+and subtract from the current $b$ value,
+which gives us the new $b$ value of \num{1.624}.
+We continue this process,
+until the derivative is close to \num{0}.
+
+\begin{marginfigure}[-5cm]
+  \centering
+  \tikzset{external/export next=false}%
+%  \tikzsetnextfilename{gradient-1d}
+  \begin{tikzpicture}
+    \begin{axis}[
+                 width=1.2\linewidth,
+                 ylabel={$E(w)$},
+                 xlabel={$b$},
+%                 ylabel style={font=\scriptsize},
+                 ticklabel style={font=\tiny},
+                 ylabel style={font=\scriptsize,at={(rel axis cs:0,1)}, anchor=south west,rotate=-90},
+                 xlabel style={font=\scriptsize,at={(rel axis cs:1,0)}, anchor=south},
+                 axis y line=left,
+                 axis x line=bottom,
+                 axis lines=center,
+                 ymin=-0.5,
+%                 enlargelimits=true,
+%                 axis line style={latex-latex},
+    ]
+      \addplot[
+        blue,
+        domain=-0.5:4.2,
+      ]
+      {2*x^2 -4.12 * x + 2.1445};
+%      \foreach \x/\y/\i in {4/17.6/1,
+%                            1.62/0.78/2,
+%                            1.14/0.05/3,
+%                            1.05/0.02/4}{%
+%        \edef\temp{%
+%          \noexpand\node[anchor=south,font=\noexpand\scriptsize] at (\x, \y) {\i};
+%        }
+%        \temp
+%      }
+      \node[font=\small,inner sep=0.3mm, draw, red, fill=red, circle, label={[red]left:$1$}] at (4, 17.6) {};
+      \node[font=\small,inner sep=0.3mm, draw, red, fill=red, circle, label={[red]above:$2$}] at (1.62, 0.78) {};
+      \node[font=\small,inner sep=0.3mm, draw, red, fill=red, circle, label={[red,xshift=0.5mm]above:$3$}] at (1.14, 0.05) {};
+      \node[font=\small,inner sep=0.3mm, draw, red, fill=red, circle, label={[red,xshift=-0.5mm]above:$4$}] at (1.05, 0.02) {};
+    \end{axis}
+  \end{tikzpicture}\\[2mm]
+
+  \begin{tabular}{lSSS}
+    \toprule
+    step  & {b} & {gradient}          & {error} \\
+    \midrule
+    1 & 4       & 11.879999999999999  & 17.6645\\
+    2 & 1.624   & 2.3760000000000003  & 0.7283720000000002\\
+    3 & 1.1488  & 0.47520000000000007 & 0.05092688000000001\\
+    4 & 1.05376 & 0.09504000000000001 & 0.023829075199999997\\
+    \bottomrule
+  \end{tabular}\\[2mm]
+  \caption{\label{fig:gradient-descent-demo}%
+    Demonstration of  gradient descent.
+    The red dots in the figure indicate the points on the error curve for each step.
+    The table below the figure lists the step, the $b$ value,
+    its derivative (gradient) and the value of the error function explicitly.
+  }
+\end{marginfigure}
+
+In Figure~\ref{fig:gradient-descent-demo},
+note that for the earlier iterations,
+the absolute value of the derivative
+(the magnitude of the gradient vector) is larger.
+Hence, we take larger stops towards the minimum.
+As we get closer to the minimum, the steps become smaller and smaller,
+as the magnitude of the gradient decreases
+alongside the rate of change of the error function.
+
+\section{A practical issue: categorical predictors}
+
+\begin{margintable}
+  \centering
+  \caption{\label{tbl:one-hot}%
+    Example one-hot encoding of five POS tag categories.
+  }
+  ~\\[1mm]
+  \begin{tabular}{lS[minimum-integer-digits=5,table-format=5.0,table-align-uncertainty=false]}
+    \toprule
+    POS tag & {coded}\\
+    \midrule
+    Noun      & 00001\\
+    Verb      & 00010\\
+    Adjective & 00100\\
+    Adverb    & 01000\\
+    Pronoun   & 10000\\
+    \bottomrule
+  \end{tabular}
+\end{margintable}
+So far,
+we assumed that the predictors of the regression model are numeric variables.
+In many problems, however, we have non-numeric predictors,
+such as part-of-speech tag of a word or the native language of a speaker.
+The most common way to include categorical variables as as predictors
+is the \emph{one-hot} or \emph{one-of-k} encoding,
+where we use binary vectors with all values except the index of the category
+set to \num{0}.
+Table~\ref{tbl:one-hot} shows an example
+where 5 POS tag categories are coded using one-hot encoding.
+There are other ways of coding categorical predictors,
+but we will not cover them here as they are rarely used in machine learning and NLP.
+
+%
+% \section{Some mathematical details}
+% \begin{tcolorbox}[title=Deriving least-squares regression]
+% \begin{equation*}
+%   E(a,b) = \sum_{i} \left(y_{i} - (a + b x_{i}) \right)^{2}
+% \end{equation*}
+% 
+% 
+% \end{tcolorbox}
+% 
+% \begin{itemize}
+%   \item Bias and variance
+%   \item Evaluating ML systems
+%     \begin{itemize}
+%       \item Training - test - development set
+%       \item k-fold cross-validation
+%     \end{itemize}
+% \end{itemize}
+
+% \section*{Where to go from here}
+% 
+% This lecture introduces some of the basic methods of machine learning
+% alongside regression.
+% We will return most of these topic and expand on them during the coming lectures.
+% 
+% 
+% \textcite{hastie2009} discuss introductory bits in chapter 1,
+%       and regression on chapter 3
+%       (sections 3.2 and 3.4 are most relevant to this lecture).
+% \textcite{jurafsky2009} has a short section (6.6.1)
+%       on regression.
+% You can also consult any machine learning book
+%       (including, \cite{mackay2003,bishop2006,james2013})
+%       cover the topics discussed in this lecture.

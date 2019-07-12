@@ -1,0 +1,909 @@
+\chapter{\label{ch:formal-languages}Formal languages and automata}
+
+Natural languages can hardly be considered `formal' languages.%
+\sidenote{?? Quote from Montague: ``no important theoretical difference between natural languages and the artificial languages of logicians.''}
+From a practical engineering perspective,
+our efforts to come up with (hand-crafted) formal specifications of
+languages often often resulted in sub-optimal results.
+However, we learned a lot about trying to do so,
+and many of the concepts/methods developed are at the hart of computer science,
+and many (practical) methods we use in computational linguistics.
+
+In this lecture,
+we will go through a gentle introduction to the theory of computation.
+Our focus will be on \emph{automata} and corresponding formal languages.
+However, we will necessarily touch on the other two subfields of
+theory of computation, \emph{computability} and \emph{complexity}.
+
+\section{Some definitions: Languages, strings, grammars}
+
+\newthought{An alphabet} is a set of symbols.
+We often use letters for our examples,
+so $\{a, b, c\}$ is an alphabet consisting of three letters.
+For many problems we may be interested in a binary alphabet like $\{1, 0\}$.
+And for some of natural language problems our alphabet may consist of words,
+such as $\{\text{cat}, \text{dog}, \text{sat}, \text{on}, \text{mat}\}$.
+By convention, the Greek capital letter sigma $\Sigma$ for representing 
+an alphabet.
+
+\newthought{A string} is a finite sequence of symbols from an alphabet.
+$a$, $ac$ or $abcaab$
+are example string over alphabet $\{a, b, c\}$.
+A special string that does not contain any symbols,
+the \emph{empty string} is denoted by Greek letter epsilon, $\epsilon$.
+We denote the set of all string over $\Sigma$,
+including the empty string, with $\Sigma^{*}$.
+$\Sigma^{+}$ is often used for the set of non-empty string in $\Sigma^{*}$
+(a shorthand for $\Sigma^{*} - {\epsilon}$).
+Note that both $\Sigma^{*}$ and $\Sigma^{+}$ have infinite number of members.
+We indicate the length of a string with vertical bars on both sides,
+$\lvert{}ab\rvert = 2$, or if $u = 0100$, $\lvert{}u\rvert{} = 4$.
+For two string $u$ and $v$, we indicate their concatenation with $uv$.
+If $u = 0100$ and $v = 11$, $uv = 010011$.
+
+\newthought{A language} is a set of strings over an alphabet.
+Empty set, $\emptyset$, is a language,
+as well as the set containing only the empty string $\{\epsilon\}$.
+Similarly $\Sigma^{*}$ is another language over alphabet $\Sigma$.
+We are generally interested in more interesting languages,
+such as%
+\sidenote{Although we define these languages informally here,
+  all of them can be defined more formally.
+  For example, the language by the first item
+  can be defined as $\{u\mid \lvert{}u\rvert = 2\}$.}
+\begin{itemize}
+  \item The set of strings of length \num{2}
+    over $\{0, 1\}$: $\{00, 01, 10, 11\}$
+  \item The set of strings with even number of \num{1}'s over $\{0, 1\}$:
+      $\{\epsilon, 101, 0, 11, 111110, \ldots\}$
+  \item The set of string that retain alphabetical ordering
+    over $\{a, b, c\}$: $\{a, ab, abc, ac, abcc, \ldots\}$
+  \item The set of strings of words
+    that form a grammatically correct English sentences
+\end{itemize}
+The strings that are in a language are called \emph{sentences} of the language.
+
+\newthought{A grammar} is a finite description of a language.
+Although the set-based definitions above is flexible,
+it is more convenient to express a language with a finite set of rules.
+The most common method for formalizing grammars is based on
+a set of \emph{rewrite rules}.
+A rewrite rule two sides delimited by an arrow ($\ra$).
+The grammar generates strings in the language,
+by rewriting sequence of symbols matching right-hand-side (RHS) of the rule 
+as the left-hand-side (LHS) of the rule,
+starting from a special `start' symbol denoted by `S'.
+The sequences of symbols in a rewrite rule is may consist of
+\emph{terminal} symbols that are member of the alphabet
+and \emph{non-terminal} symbols.
+The non-terminal symbols are denoted using capital letter by convention.
+For example, the grammar in Figure~\ref{fig:exmpl-grammar}
+produces a language over the alphabet $\{a, b, c\}$
+whose last symbol (word) is always an $a$.
+This is not the only way to express the same language.
+There are multiple (better, more concise) ways of writing
+the same grammar.
+The rule number 2\ in the grammar shown in Figure~\ref{fig:exmpl-grammar}
+is recursive, it allows infinite number applications of this rule,
+and hence, the grammar defines an infinite language with a finite set of rules.
+
+\begin{marginfigure}
+  \begin{tcolorbox}
+    \begin{enumerate}
+      \item $ S \ra A a$
+      \item $ A \ra B A$
+      \item $ A \ra B$
+      \item $ B \ra a$
+      \item $ B \ra b$
+      \item $ B \ra c$
+    \end{enumerate}
+  \end{tcolorbox}
+  \caption{\label{fig:exmpl-grammar}%
+    An example grammar producing string over $\{a, b, c\}$
+    that end with symbol $a$.
+    A common short-hand for writing last three rules is a single rule 
+    of the form `$B \ra a | b | c$'.
+  }
+\end{marginfigure}
+
+Formally,
+a phrase structure grammar is a tuple
+$G = (\Sigma, N, S, R)$, where
+  \begin{itemize}
+    \item[$\Sigma$] is an alphabet of terminal symbols
+    \item[$N$] are a set of non-terminal symbols 
+    \item[$S$] is a special `start' symbol $\in N$
+    \item[$R$] is a set of rules of the form $\alpha \ra \beta$,
+      where  $\alpha$ and $\beta$ are strings from $(\Sigma \cup N)^{*}$.
+  \end{itemize}
+
+For our example in Figure~\ref{fig:exmpl-grammar},
+$\Sigma = \{a, b, c\}$, $N = \{S, A, B\}$, $S = S$,
+and $R = \{ S \ra A a, A \ra B A, A \ra B,
+      B \ra a, B \ra b, B \ra c\}$.
+
+
+\begin{marginfigure}
+  \begin{tcolorbox}[halign=center]
+    \begin{tabular}{l@{\Ra}ll}
+      $S      $ & $A a$     &(rule 1)\\
+      $A a    $ & $B A a$   &(rule 2)\\
+      $B A a  $ & $B B A a$ &(rule 3)\\
+      $B B A a$ & $B B B a$ &(rule 3)\\
+      $B B B a$ & $B B c a$ &(rule 6)\\
+      $B B c a$ & $B b c a$ &(rule 5)\\
+      $B b c a$ & $a b c a$ &(rule 4)\\
+    \end{tabular}
+  \end{tcolorbox}
+  \caption{\label{fig:example-derivation}%
+    A derivation of string $abca$ using the grammar
+    in Figure~\ref{fig:exmpl-grammar}.
+  }
+\end{marginfigure}
+Given the grammar in Figure~\ref{fig:exmpl-grammar},
+the string \texttt{abca} can be derived with the derivation sequence
+presented in Figure~\ref{fig:example-derivation}.
+We could write the same derivation sequence as
+'$S \Ra A a \Ra B A a \Ra B B A a \Ra B B B a \Ra B B c a \Ra B b c a \Ra a b c a$'.
+In general, if a string can be derived from the start symbol S
+using a sequence of rewrite rules as above
+(sometimes notes as `S $\overset{*}{\Ra}$ a b c a',
+we say that the grammar \emph{generates} the string,
+or the string is \emph{recognized} by the grammar.
+Hence, the string is a valid sentence in the language.
+
+The above definitions are important for understanding formal languages,
+and also used in study of natural languages in formal linguistics.
+
+\section{Chomsky hierarchy of languages}
+
+\begin{marginfigure}
+  \begin{center}
+    \tikzset{external/export next=false}%
+    \begin{tikzpicture}[x=4mm,y=8mm]
+      \draw (0,0) ellipse (3.0 and 1.0);
+      \node[font=\footnotesize] at (0,0) {Regular};
+      \draw (0,0.5) ellipse (4.0 and 1.5);
+      \node[font=\footnotesize] at (0,1.3) {Context Free};
+      \draw (0,1.0) ellipse (5.0 and 2.0);
+      \node[font=\footnotesize] at (0,2.3) {Context Sensitive};
+      \draw (0,1.5) ellipse (6.0 and 2.5);
+      \node[font=\footnotesize] at (0,3.2) {Recursively Enumerable};
+      \draw (-6.1,-1.1) rectangle (6.1,4.1);
+      %\draw (4,3.8) node {All};
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:chomsky-h}%
+    Chomsky hierarchy of language classes. 
+    The classes are also known as \emph{type-0}
+    (recursively enumerable) to \emph{type-3} (regular).
+  }
+\end{marginfigure}
+
+The Chomsky hierarchy of languages
+is one of Chomsky's most important contributions
+to both linguistics and computer science \parencite{chomsky1959b}.
+For his theory of natural language syntax,
+Chomsky defined a set of formal language classes
+(depicted in Figure~\ref{fig:chomsky-h}).
+Each class in this hierarchy is the proper subset of the larger class.
+The larger classes are more descriptive,
+but their computational processing is more demanding.
+This particular classification of the language classes
+has some attractive formal properties,
+and each class corresponds to
+a certain type of abstract computational device
+that is capable of recognizing
+and generating the languages in the corresponding class.
+As a result, as well as its importance for (computational) linguistics,
+this hierarchy is also an important part theory of computation.
+We will define the individual language classes and the
+properties of the rewrite grammars that expresses them.
+In general, we will describe each language class
+based on the restriction they put in the rewrite grammars that describe them.
+
+We will next discuss at these language classes with in detail.
+However, we note that these language classes are not 
+the only formally defined language classes.
+There are other well-studied language classes
+some of which can be placed
+in the set-inclusion hierarchy in Figure~\ref{fig:chomsky-h},
+while other may cross-cut parts of this hierarchy.
+
+\subsection{A brief divergence: complexity theory}
+
+As noted earlier,
+study of formal languages strongly linked to theory of computation,
+particularly complexity theory.
+Here, we will briefly review a part of the complexity theory briefly,
+since some of the concepts will be instrumental in our discussion
+of the language classes and the computational problems
+related to these language classes.
+
+In analysis of algorithms,
+and algorithms worst time order of complexity 
+is indicated a notation called \emph{big-O notation}.
+Big-O notation aims to measure an algorithms complexity
+as its input grows in size.
+Since the aim of the big-O notation is indicating
+the worst case with large number of input,
+we discard all constant and lower order complexities from
+the analysis of our algorithm.
+For example, if our analysis indicate an algorithm to require
+$T(n) = 100\times{}2^{n} + n^{10} + \log{n} + 10^{100}$ steps
+(e.g., a simple operation on a CPU) to complete,
+the complexity we are interested in is indicated by $O(2^{n})$.
+In general, we drop all terms except $2^{n}$ above,
+since all other figure will dwarfed by this term
+as the size of the input ($n$) is increased.
+Although even a constant factor is often important in practice,
+we may be able get reasonable running times by parallelization,
+or hope that increase in computing power will allow us
+to use these algorithms.
+The order of complexity measured with big-O notation has
+more important theoretical consequences.
+A few common examples of complexities measured using big-O notation
+are given below.
+
+\begin{itemize}[nosep,labelindent=1em,labelwidth=1.3cm,labelsep*=1em,leftmargin =!]
+  \item[\textcolor{blue!50!green}{$O(1)$}] constant,
+    an algorithm that does not depend on the size of its input,
+    e.g., accessing a single element of an array
+  \item[\textcolor{blue!50!green}{$O(\log n)$}] logarithmic,
+    e.g., binary search
+  \item[\textcolor{blue!50!green}{$O(n)$}] linear,
+    e.g., finding minimum or maximum value of an array
+  \item[\textcolor{blue}{$O(n \log n)$}] log linear,
+    e.g., some sorting algorithms 
+  \item[\textcolor{blue}{$O(n^{2})$}] quadratic,
+    e.g., selection sort (and most arithmetic operations)
+  \item[\textcolor{blue}{$O(n^{3})$}] cubic
+  \item[\textcolor{red}{$O(2^{n})$}] exponential,
+    e.g., graph search algorithms involving backtracking
+    (note that the base is not important)
+  \item[\textcolor{red}{$O(n!)$}] factorial,
+    e.g., enumerating all binary trees spanning $n$ items (words)
+\end{itemize}
+
+\begin{marginfigure}
+  \begin{tikzpicture}
+    \begin{axis}[
+        ymax=2000,
+        axis x line=bottom,
+        axis y line=left,
+        xlabel=$n$,
+        xlabel style={font=\tiny},
+        ylabel style={font=\tiny},
+        title style={font=\tiny},
+        ticklabel style={font=\tiny},
+        x=0.4mm,
+        y=0.025mm,
+%        cycle list={colormap/Spectral-7},
+        thick,
+        grid,
+        legend style={font=\tiny,fill=none,draw=none},
+        legend cell align=left,
+      ]
+      \addplot[blue,dashed, domain=1:100, samples=100] {ln(x)};
+      \addplot[green,domain=1:100, samples=100] {x};
+      \addplot[black,dashed, domain=1:100, samples=100] {x*ln(x)};
+      \addplot[orange,domain=1:100, samples=100] {x^2};
+      \addplot[brown,dashed,domain=1:15, samples=100, smooth,unbounded coords=jump] {x^3};
+      \addplot[purple,domain=1:12, samples=100, smooth,unbounded coords=jump] {2^x};
+      \addplot[red,dashed,domain=1:8, samples=7, unbounded coords=jump] {x!};
+      \legend{
+          $O(\log n)$,
+          $O(n)$,
+          $O(n \log n)$,
+          $O(n^{2})$,
+          $O(n^{3})$,
+          $O(2^{n})$,
+          $O(n!)$,
+      };
+    \end{axis}
+  \end{tikzpicture}
+  \begin{tikzpicture}
+    \begin{semilogyaxis}[
+        ymax=1000000000000000000000000000,
+        ytickten={0,5,...,25},
+        axis x line=bottom,
+        axis y line=left,
+        xlabel=$n$,
+        xlabel style={font=\tiny},
+        ylabel style={font=\tiny},
+        title style={font=\tiny},
+        ticklabel style={font=\tiny},
+        x=0.4mm,
+        y=0.75mm,
+%        cycle list={colormap/Spectral-7},
+        thick,
+        grid,
+        legend style={font=\tiny,fill=none,draw=none, yshift=-1cm},
+        legend cell align=left,
+      ]
+      \addplot[blue,dashed, domain=1:100, samples=100] {ln(x)};
+      \addplot[green,domain=1:100, samples=100] {x};
+      \addplot[black,dashed, domain=1:100, samples=100] {x*ln(x)};
+      \addplot[orange,domain=1:100, samples=100] {x^2};
+      \addplot[brown,dashed,domain=1:100, samples=100, smooth,unbounded coords=jump] {x^3};
+      \addplot[purple,domain=1:100, samples=100, smooth,unbounded coords=jump] {2^x};
+      \addplot[red,dashed,domain=1:30, samples=30, unbounded coords=jump] {x!};
+      \legend{
+          $O(\log n)$,
+          $O(n)$,
+          $O(n \log n)$,
+          $O(n^{2})$,
+          $O(n^{3})$,
+          $O(2^{n})$,
+          $O(n!)$,
+      };
+    \end{semilogyaxis}
+  \end{tikzpicture}
+  %TODO: more print-friendly graphs
+  \caption{\label{fig:computational-complexity}%
+    Order of operations required by different algorithmic complexity
+    measured by big-O notation.
+    Top graph represents this linearly,
+    while the y-axis of bottom graph is logarithmic
+    (changes in the graph indicate an exponential changes
+    in the number of operations),
+    allowing us to visualize later compare complexity over
+    a larger interval of input size $n$.
+  }
+\end{marginfigure}
+Naturally, we prefer the lower-complexity algorithms
+(earlier items in the above list).
+However, the behavior of the last two items in the list
+and the earlier ones are drastically different when the input size is increased.
+The ones up to $O(n^{3})$ above,
+in general any algorithm whose complexity can be explained
+a polynomial of any degree,
+are called \emph{polynomial} time algorithms.
+In general, polynomial time algorithms are said to be \emph{tractable}.
+And algorithms with worse complexity than polynomial time
+are called \emph{intractable}.
+Intractable algorithms scale badly with increased input size,
+Even with reasonable increase in computing power,
+we do not have any hopes of solving intractable algorithms
+for larger input sizes.
+Figure~\ref{fig:computational-complexity}
+presents order of operations needed for algorithms
+with different complexities.
+The top graph in Figure~\ref{fig:computational-complexity},
+showing how drastic the complexity may change.
+Note that an algorithm with $O(n^{3})$ requires more operations
+for small input sizes,
+but in time non-polynomial algorithms more costly for larger input sizes.
+The bottom graph shows this more drastically,
+as the input size increased,
+the polynomial and non-polynomial algorithms becomes much clear.
+
+A fundamental activity in computer science is to find
+algorithms with lower big-O complexity.
+For example,
+a brute-force approach to recognizing context-free languages 
+is exponential in the length of the sentence (or computer program).
+However, we have clever solutions that work in polynomial time
+using a modest amount of additional storage.
+The class of problems that has a known polynomial-time algorithm is
+indicated by P.
+For some problems we do not know a tractable algorithm.
+However, they are not provably intractable,
+we may hope to find some polynomial time algorithm for solving
+these problems and they may become a member of P.
+An interesting subclass of these problems
+for which we do not have a polynomial-time algorithm to solve it,
+we can identify the solution (in polynomial time) when we see the solution.
+This class of problems are called
+\emph{non-deterministic polynomial time} (NP).
+P is a subset of NP.
+However, one of the big questions in theory of computation is
+whether P is equal to NP or not.
+If it is,
+then there are tractable algorithms waiting to be discovered
+for many of the problems in NP.
+
+An interesting sub-class of NP is called NP-complete.
+If we find a polynomial time solution to any of the NP-complete problems,
+we can solve all NP problems in polynomial time,
+since solution of any NP problem can be `converted' obtained using
+the solution of an NP-complete problem
+with a polynomial overhead for the conversion.
+Finding a polynomial algorithm for an NP-complete problem
+would prove P = NP,
+as well as solving many difficult problems in a wide range of fields.
+However, 
+the fact we do not know tractable algorithms for NP-complete problems
+despite decades of efforts by many clever people
+suggests that P is probably not equal to NP.
+Hence, when we face a problem that is NP-complete,
+or in a more difficult complexity class,
+chances of finding a scalable solution is rather unlikely.
+
+The concepts introduced above should be sufficient to understand
+some of the complexity issues we will discuss below.
+However, there are many other complexity classes,
+and many unknowns, interesting problems,
+about the relation between these classes.
+A reasonable overview of computational complexity is
+out of the scope of this lecture.
+The additional resources at end of the chapter points to
+a few textbooks covering the complexity theory is covered.
+
+\subsection{Regular languages}
+
+Regular languages is the simplest
+(least expressive, easy to process computationally)
+class in Chomsky hierarchy.
+The regular languages are defined by \emph{regular grammars}
+which are (mostly) equivalent to \emph{regular expressions}
+that are used in many programming environments
+for searching patterns in text.
+We will study regular languages in detail in Chapter~\ref{ch:fst}.
+
+\begin{marginfigure}
+  \begin{tcolorbox}[rounded corners]
+    \begin{multicols}{2}
+      \begin{enumerate}
+        \item $A \ra a$
+        \item $A \ra Ba$
+        \item $A \ra \epsilon$
+      \end{enumerate}
+      \begin{enumerate}
+        \item $A \ra a$
+        \item $A \ra aB$
+        \item $A \ra \epsilon$
+      \end{enumerate}
+    \end{multicols}
+  \end{tcolorbox}
+  \caption{\label{fig:regular-grammars}%
+    The possible rules for left-regular (left)
+    and right-regular (right) grammars.
+    For both, $A$ and $B$ are non-terminal,
+    $a$ is a terminal sybol ($a \in \Sigma$),
+    and $\epsilon$ is the empty string.
+  }
+\end{marginfigure}
+A \emph{regular grammar} is a grammar that generates a regular language.
+There are two flavors of regular grammars.
+The \emph{left-regular grammars} can have only the rules listed in left side
+of Figure~\ref{fig:regular-grammars}.
+The rules allowed in a \emph{right-regular grammar} is listed
+in the right side of Figure~\ref{fig:regular-grammars}.
+In simple words, regular grammar can have three types of rules
+\begin{itemize}
+  \item A single non-terminal symbol rewritten as a single terminal symbol
+  \item A single non-terminal symbol as one terminal
+    and one non-terminal symbol
+    (the order determines whether the grammar left or right regular)
+  \item A single non-terminal symbol as empty string ($\epsilon$)
+\end{itemize}
+Note that both definitions allow defining all (and only) regular languages.
+Some definitions do not allow transition to empty string
+(3rd rule in both definitions).
+
+A regular grammar only defines regular languages.
+However, note that regular languages can also be defined
+with non-regular grammars (e.g., context free grammars we will define next).
+
+%TODO: examples, exercises
+
+\subsection{Context-free languages}
+
+Context-free languages are the next (more expressive) language
+after regular languages in the Chomsky hierarchy.
+They are used in describing (and parsing) programming languages.
+The syntax of all programming languages are based on context-free grammars.%
+\sidenote{They are generally defined by a restricted
+  (deterministic, non-ambiguous) subset of context-free grammars
+  for efficiency of parsing,
+  and in a limited/restrict set of non-context freeness may be used. 
+}
+Similarly,
+many syntactic theories of natural languages are based on
+a context-free backbone
+(we will discuss this further in Section~\ref{sec:nl-and-fl}).
+
+The restrictions on the rewrite rules
+for context-free grammars are simple:
+left-hand-side (LHS) of the rule has to contain a single non-terminal.
+Unlike regular grammars,
+we do not have any restrictions on right-hand-side (RHS)
+of the rewrite rules.
+They can contain any combination of non-terminal and terminal symbols
+(or $\epsilon$).
+The context-free languages are called so,
+since the rewrite rules express
+expanding a non-terminal anywhere independent of their context.
+
+%TODO: examples, exercises
+
+\subsection{Context sensitive languages}
+
+Context sensitive languages are a superset of context-free languages.
+The rules of context sensitive language are required to be in the following form.
+\[
+  \alpha A \beta \ra \alpha \gamma \beta
+\]
+where $A$ is a single non-terminal symbol,
+$\alpha$ and $\beta$ are
+possibly empty strings of terminals and non-terminals,
+and $\gamma$ is a non-empty string of terminal and non-terminal symbols.
+Note that the above definition does not allow
+a LHS non-terminal to be deleted (rewritten as $\epsilon$).
+However, a rule of the form $S \ra \epsilon$ is allowed
+to ensure that the context-sensitive languages are
+a superset of context-free languages.
+Another way to define a context sensitive grammars is 
+requiring the RHS of all rules to be longer than or equal to the LHS.%
+\sidenote{The grammars defined this way is known as
+  \emph{non-contracting grammars} and are
+  known to be \emph{weakly equivalent} to context-sensitive grammars.
+  That is, we can convert any non-contracting grammar to 
+  a context-sensitive grammar.
+}
+
+Many problems with context-sensitive grammars do not have
+efficient solutions (see Section~\ref{sec:formallang-automata}).
+
+\subsection{Recursively enumerable languages}
+
+The recursively enumerable languages are the most expressive language
+in the Chomsky hierarchy.
+Recursively enumerable languages are languages over an alphabet that are,
+well, recursively enumerable.
+That is, there exist an algorithm that can enumerate (list)
+all strings in the language.
+
+The grammars that define recursively enumerable languages
+do not pose any restrictions on their rewrite rules,
+except that their LHS being non-empty.
+The class of grammars that generate recursively enumerable languages
+are called \emph{unrestricted grammars}.
+
+\section{\label{sec:formallang-automata}Formal languages and automata}
+
+The simplest question we ask about a grammar,
+or the corresponding language,
+is recognizing strings that belong to the language.
+That is, given a string,
+can we determine whether it belongs to the language or not?
+
+This question links the language classes described above to
+abstract computation devices, \emph{automata}.
+In other words,
+for each language class discussed above,
+there is an type of automaton that recognizes the strings of
+a language in the class.
+We will briefly discuss these correspondences,
+starting from the most-expressive language class.
+
+Strings in a recursively enumerable language,
+the most expressive class in the Chomsky hierarchy,
+can be recognized by a \emph{Turing machine}.
+The Turing machine is a simple abstract computing device
+that can compute any computable function.
+In other words, any algorithm can be simulated by a Turing machine.
+The relationship between recursively enumerable languages
+and Turing machines mean
+that a Turing machine can generate all (and only) string
+in the corresponding recursively enumerable language.
+However, the question is whether a string is in
+a recursively enumerable language or not is undecidable,
+since it is equal to a \emph{halting problem},
+a well known undecidable problem.
+
+The machines that recognize the context-sensitive languages
+are a restricted version of Turing machines
+called \emph{linear-bounded automata}.
+Although whether a string is generated by a context-sensitive grammar
+or not is decidable,
+it is known to be computationally complex.%
+\footnote{More formally,
+  it is PSPACE-complete, and PSPACE is a superset of NP.
+}
+
+Context-free grammars can be recognized by \emph{push-down automata}.
+A push-down automaton has a finite number of sates that controls
+the computation
+(similar to the finite-state machines we will summarize next),
+and a stack (with access to only the top element) as memory.
+Although the complexity of first two
+the grammars and machines discussed above are computationally intractable,
+there are many practical algorithms for solving problems
+involving context-free grammars.
+We will revisit the context-free grammars
+when we discuss parsing algorithms later.
+
+\begin{marginfigure}
+  \begin{center}
+    \begin{tikzpicture}[
+      ]
+      \node[draw,thick,state,initial,initial text={}] (s0) {0};
+      \node[draw,thick,right=of s0,state] (s1) {1};
+      \node[draw,thick,right=of s1,state,accepting] (s2) {2};
+      \draw[->] (s0) edge[above] node{a} (s1)
+                (s1) edge[loop above] node{b} (q1)
+                (s1) edge[above] node{c} (s2);
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:fsa-example}%
+    An example automata recognizing the strings over alphabet
+    $\{a, b, c\}$ which begins with $a$, followed by zero or more
+    $b$s, and ends with $c$.
+  }
+\end{marginfigure}
+Finally, the regular languages are recognized by finite-state automata.
+Finite state automata (FSA) can be described by a directed graph
+with a finite nodes (states) and edges are
+labeled with symbols of the alphabet.
+A finite-state automaton
+can accept (or rejects) its input in time complexity
+linear in the length of input.
+Furthermore, the FSA are `memoryless',
+except the automaton itself, they do not need any additional memory.
+Figure~\ref{fig:fsa-example} shows an example finite state automata.
+We will discuss finite-state automata in Chapter~\ref{ch:fsa}.
+
+\section{Where do natural languages fit}
+
+One of the motivations behind building the classes of languages
+in the Chomsky hierarchy was to characterize
+the type of formal grammars that are adequate for natural languages,
+primarily natural language syntax.
+By `adequate', we mean classes of grammars that can represent
+the phenomena we observe in natural languages,
+yet computationally not so demanding.
+The latter condition, computational efficiency,
+is not only desirable
+from the perspective of computational processing of natural languages.
+It is also important for cognitive science
+where one of the main tenets is that cognition is a form of computation.
+Since human cognitive system is a computing device
+with limited/finite resources,
+there are bounds on its computational capabilities.
+As a result, the computational efficiency of language processing is
+also important for study of human languages from a cognitive perspective.
+
+
+Initially,
+context-free languages were considered to be adequate
+for representing natural languages.
+However,
+a small number of linguistic constructions cannot be represented
+using context-free languages.
+A typical example is the cross-serial dependencies found
+in Dutch and Swiss German.
+Figure~\ref{fig:cross-serial} presents
+an example cross-serial dependency from Swiss German.
+The dependencies with the verbs and their arguments cross.
+As a result, context free grammars cannot represent this structure.
+The problem is clearer if you consider
+the operations of a push down automaton.
+If we push the case marking on each noun on the stack,
+by the time we process the verb \xmpl{hälfed},
+we do not have access to case marking of its argument
+as it is not on the top of the stack anymore.
+
+\begin{figure*}
+  \tikzset{external/export next=false}
+  \begin{center}
+    \begin{tikzpicture}
+      \matrix[matrix of nodes] (m) {
+        Jan & säit  & das & mer &\color{blue} em Hans & \color{red}es huss & \color{blue} hälfed & \color{red}aastriiche \\
+        Jan & said & that & we & Hans (\textsc{dat}) & the house (\textsc{acc}) & helped & paint \\
+      };
+      \draw[blue] (m-1-5) to[in=north, out=north, looseness=0.5] (m-1-7);
+      \draw[red] (m-1-6) to[in=north, out=north, looseness=0.5] (m-1-8);
+    \end{tikzpicture}
+  \end{center}
+  \caption{
+    An example cross-serial dependency from Swiss German
+    \parencite{shieber1985}.
+    The case marking of \xmplt{em Hans}{Hans} agrees with the verb
+    \xmplt{hälfed}{helped},
+    while the case marking of \xmplt{es huss}{house} agrees with the verb
+    \xmplt{aastriiche}{paint}.
+    Note that this resembles 
+    $a^{\color{blue}n}b^{\color{red}m}c^{\color{blue}n}d^{\color{red}m}$.
+  }\label{fig:cross-serial}%
+\end{figure*}
+
+Although the syntactic phenomena such as the one presented
+in Figure~\ref{fig:cross-serial} are clearly non-context free,
+their existence do not require the full representation power
+(and computational complexity) of context-sensitive grammars.
+A common theoretical consensus seems that
+a grammar class, called \emph{mildly context sensitive} grammars
+are adequate for representing natural languages
+(see Figure~\ref{fig:chomsky-h-mcs}).
+In practice,
+many computationally oriented theories of grammars use
+a context-free backbone with some extensions that increase their
+expressive power.
+This extension may range from mildly context-sensitive grammars%
+\sidenote{E.g., Combinatory categorial grammar (CCG)
+and tree adjoining grammar (TAG).}
+to Turing machine equivalence.%
+\sidenote{E.g., Head-driven phrase structure grammars (HPSG),
+  and (according to some analyses lexical-functional grammar (LFG).
+}
+Although these extensions increase
+their worst-case computational complexity drastically,
+these formalisms often work acceptably in practice due to their
+reasonable expected/average time complexity.
+
+
+Before closing this brief discussion of natural languages
+and formal languages,
+their representational power and computational complexity,
+we should note that the non-context-free extensions
+to the theories of natural language grammars are not
+motivated only by the representation power.
+Besides being able to represent the constructions
+like the cross-serial dependencies,
+extensions requiring higher
+than context-free power are often proposed
+when they match better with linguistic intuitions.
+In other words, even if a context-free grammar may be adequate
+to represent a language,
+an extended version may match the linguists' intuition
+of how the linguistic structures are derived better.
+
+\begin{marginfigure}
+  \begin{center}
+    \tikzset{external/export next=false}%
+    \begin{tikzpicture}[x=4mm,y=8mm]
+      \draw[dashed] (0,.6) ellipse (4.2 and 1.6);
+      \draw (0,0) ellipse (3.0 and 1.0);
+      \node[font=\footnotesize] at (0,0) {Regular};
+      \draw (0,0.5) ellipse (4.0 and 1.5);
+      \node[font=\footnotesize] at (0,1.3) {Context Free};
+      \draw (0,1.0) ellipse (5.0 and 2.0);
+      \node[font=\footnotesize] at (0,2.4) {Context Sensitive};
+      \draw (0,1.5) ellipse (6.0 and 2.5);
+      \node[font=\footnotesize] at (0,3.2) {Recursively Enumerable};
+      \draw (-6.1,-1.1) rectangle (6.1,4.1);
+      %\draw (4,3.8) node {All};
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:chomsky-h-mcs}%
+    A depiction of Chomsky hierarchy of language classes
+    (Figure~\ref{fig:chomsky-h},
+    with the addition of \emph{mildly context-sensitive languages}
+    represented with the dashed ellipse.
+  }
+\end{marginfigure}
+
+\section{\label{sec:formal-lang-learnability}%
+        Formal languages and learnability}
+
+A central question in modern linguistics, surrounded with a big debate,
+has been learnability of natural languages.
+Some researchers, primarily based on Noam Chomsky's ideas,
+championed the idea that the natural languages are not learnable.
+Hence, only way for a human child to learn the languages they are exposed to
+is to have an innate linguistic component.
+The debate is linked to an even bigger, and much older one:
+nature vs.\ nurture debate. 
+The debate at large  has little practical use in a course
+on natural language processing.
+It also seems the heated discussion on the topic has slowed down after 2000s.
+However, part of the debate is linked with some of the results regarding
+learnability of classes of formal languages,
+and together with the fact that this discussion has
+a historical significance in the field,
+it deserves a brief mention here.
+
+There has been a number of formal proofs
+indicating that none of the languages in the Chomsky hierarchy is
+learnable only from positive examples.%
+\footnote{Mainly due to \textcite{gold1967}.}
+These results frequently used as an argument for the innateness hypothesis.
+However, the formal arguments are often too general,
+and do not necessarily match the settings in which children learn languages.
+For example, the results cited above are obtained for the language classes
+in the Chomsky hierarchy,
+while the human languages do not necessarily match with
+one of these language classes.
+It is more likely that the class of natural languages,
+if such a class exists,
+cross cut the hierarchy (as in Figure~\ref{fig:chomsky-h-cross}).
+In other words,
+even regular languages allow some constructions
+that are not useful for representing structures in human languages.
+%TODO: example
+Furthermore,
+the condition that the languages should be learned from
+the positive examples alone is likely to be too strict
+for a realistic setting for child language acquisition.
+
+\begin{marginfigure}
+  \begin{center}
+    \tikzset{external/export next=false}%
+    \begin{tikzpicture}[x=4mm,y=8mm]
+      \definecolor{vlgray}{rgb}{0.9,0.9,0.9}
+      \filldraw[vlgray,draw opacity=0.1] (0,.6) ellipse (1.5 and 1.6);
+      \draw[dashed] (0,.6) ellipse (4.2 and 1.6);
+      \draw (0,0) ellipse (3.0 and 1.0);
+      \node[font=\footnotesize] at (0,0) {Regular};
+      \draw (0,0.5) ellipse (4.0 and 1.5);
+      \node[font=\footnotesize] at (0,1.3) {Context Free};
+      \draw (0,1.0) ellipse (5.0 and 2.0);
+      \node[font=\footnotesize] at (0,2.4) {Context Sensitive};
+      \draw (0,1.5) ellipse (6.0 and 2.5);
+      \node[font=\footnotesize] at (0,3.2) {Recursively Enumerable};
+      \draw (-6.1,-1.1) rectangle (6.1,4.1);
+      %\draw (4,3.8) node {All};
+    \end{tikzpicture}
+  \end{center}
+  \caption{\label{fig:chomsky-h-cross}%
+    A possible set (indicated by the shaded region in the figure)
+    for class of natural languages in the Chomsky hierarchy,
+    to demonstrate that learnability results on a particular language
+    class in the hierarchy is not necessarily
+    a positive or negative indication for learnability of natural languages. 
+    As in Figure~\ref{fig:chomsky-h-mcs},
+    the dashed ellipse represents
+    the class of mildly context-sensitive languages.
+  }
+\end{marginfigure}
+
+Perhaps more interesting for computational linguistics is
+the question of learnability of languages is an empirical question
+that can be answered by a computational model.
+Theoretical claims aside,
+if we can build models that can learn natural languages
+from the input available to children,
+that is a good indication that they are learnable.
+Even if the computational model may not mimic
+the way children learn languages,
+they can be used to show that learning is in principle possible.
+Furthermore,
+if we constrain such models the way human learners are constrained,
+we may be able to answer even more interesting questions.
+
+In summary,
+although it is not part of the mainstream
+computational linguistics or natural language processing fields,
+the methods used typically in these fields can also be instrumental
+in study of languages from cognitive science perspective.
+
+\section{Where to go from here}
+
+This lecture is a brief overview of formal languages
+and automata theory.
+We also noted some topics in theory of computation
+(e.g., computational complexity and complexity classes),
+and even some related issues in theoretical linguistics
+and cognitive science.
+All of these topics are, necessarily, covered briefly, on the surface.
+Some of these topics will be revisited in later lectures.
+Here, we point to some of the relevant literature.
+
+\textcite{hopcroft1979} (and its successive editions) has been
+the most influential textbook on formal languages and automata theory.
+\textcite{sipser2006} is another good textbook
+on the topic
+covering formal languages and automata as well as 
+complexity theory and other interesting issues in the theory of computation.
+
+The discussion of learnability
+briefly touched in Section~\ref{sec:formal-lang-learnability}
+started in 1950s and 1960s based on Chomsky's work.
+The literature in the field is vast,
+ranges from psycholinguistics to computational linguistics.
+Probably most popular work
+on the innateness side of the debate is \textcite{pinker1994},
+focusing mainly claims based on theoretical and experimental work.
+\textcite{a.clark2011book} provides a more recent review of the field
+from the opposite side of the debate.
+This book also is more closely related
+to the formal languages discussed in this chapter.
+
+\section{What to add}
+
+\begin{itemize}
+  \item About complexity: infinity is overrated
+  \item A bit of clarification/emphasis on `generative' side of grammars
+\end{itemize}

@@ -1,0 +1,3 @@
+- Discuss somewhere benefits (e.g., divide&concur) and drawbacks
+  (error propagation) of pipeline systems.
+- types vs. tokens

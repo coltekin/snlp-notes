@@ -1,0 +1,205 @@
+\documentclass[nobib,%
+               a4paper,%
+               notitlepage,%
+%               nofonts,%
+               justified]{tufte-book}
+%\includeonly{sequence-learning}
+\usepackage[fleqn]{amsmath}
+\usepackage{mathtools}
+\setlength{\mathindent}{1cm}
+\usepackage{euler}
+\usepackage{eulervm}
+\usepackage[utf8]{inputenc}
+\usepackage[group-minimum-digits=4,%
+            mode=math,%
+            round-mode=places,%
+            round-precision=2]{siunitx}
+
+\usepackage{enumitem}
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usetikzlibrary{pgfplots.groupplots}
+\pgfplotsset{compat=newest}
+\usepgfplotslibrary{fillbetween,statistics,colorbrewer}
+\usetikzlibrary{calc,%
+                shapes,%
+                backgrounds,%
+                scopes,%
+                shadings,%
+                positioning,%\
+                calendar,%
+                automata,%
+                decorations.pathreplacing,%
+                decorations.pathmorphing,%
+                angles,%
+                matrix,%
+                quotes,%
+                external,%
+}
+
+\tikzset{
+  external/mode=list and make,
+  >=stealth,
+  grid/.style={gray,opacity=0.2,very thin},
+}
+\tikzexternalize[prefix=figures/]
+
+\usepackage[tableposition=above]{caption}
+
+\usepackage{graphicx}
+\usepackage[breakable]{tcolorbox}
+%\tcbuselibrary{fitting}
+
+\usepackage{multicol}
+
+\usepackage[english]{babel}
+\usepackage{hyperref}
+
+\usepackage[
+  type={CC},
+  modifier={by},
+  version={3.0},
+  imagemodifier={-eu},
+]{doclicense}
+
+\usepackage{expex}
+\gathertags
+
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\usepackage[framemethod=TikZ]{mdframed}
+\mdfsetup{
+  innerrightmargin=2cm,
+  roundcorner=10pt
+}
+\usepackage{exsheets}
+\SetupExSheets[question]{
+  headings = runin,
+%  pre-hook = \mdframed,
+%  post-hook = \endmdframed
+}
+
+\usepackage{csquotes}
+\usepackage[
+  style=authoryear,
+  backend=biber,
+  autocite=footnote
+]{biblatex}
+\addbibresource{snlp.bib}
+
+\usepackage[noend]{algpseudocode}
+\usepackage{algorithm}
+\usepackage{listings}
+
+\setcounter{secnumdepth}{2}
+\titleformat{\chapter}%
+  {\huge\rmfamily\itshape}% format applied to label+text
+  {\llap{%
+			\parbox{1.5cm}{%
+%				\hfill\itshape\huge\thechapter\hspace*{1ex}%
+        \hfill\tikzset{external/export next=false}%
+        {\tikz{\node[draw]{\itshape\huge\thechapter};}}%
+				\hspace*{1ex}%
+			}%
+		}%
+	}% label
+  {0pt}% horizontal separation between label and title body
+  {}% before the title body
+  []% after the title body
+
+
+\title{Statistical NLP: course notes}
+%\date{November 10, 2016}
+\author[Ç. Çöltekin]{Çağrı Çöltekin --- SfS / University of Tübingen}
+
+
+\newcommand{\ra}{\ensuremath{\rightarrow}}
+\newcommand{\Ra}{\ensuremath{\Rightarrow}}
+\newcommand{\RA}{\ensuremath{\overset{*}{\Rightarrow}}}
+\newcommand{\la}{\ensuremath{\leftarrow}}
+\newcommand{\La}{\ensuremath{\Leftarrow}}
+
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\newcommand{\vect}[1]{\ensuremath{\mathbold#1}}
+\newcommand{\given}{\ensuremath{\:\vert\:}}
+\newcommand{\term}[1]{\emph{{#1}}}
+
+\newcommand{\xmpl}[1]{\textit{#1}{}}
+\newcommand{\xmplt}[2]{\textit{#1} `#2'{}}
+\newcommand{\xmplp}[1]{/\texttt{#1}/{}}
+\newcommand{\xmplpt}[2]{/\texttt{#1}/ `#2'{}}
+\newcommand{\ttag}[1]{\texttt{#1}{}}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\usepackage{currfile}
+\usepackage[draft]{snlp-notes}
+
+\begin{document}
+
+\frontmatter
+
+\maketitle
+
+
+\vfill
+These notes are prepared for the class \emph{Statistical Natural Language Processing}
+taught in Seminar für Sprachwissenschaft, University of Tübingen.
+
+\vfill
+\noindent\doclicenseLongText%
+\marginnote[-2ex]{%
+  \doclicenseImage%
+%  \doclicenseIcon%
+}
+%\doclicensePlainFullText
+
+\tableofcontents
+
+\mainmatter
+%\ifsnlpdraft
+%  \fancyfoot[RE,RO]{\tiny\textcolor{gray}{Draft lecture notes. Version: \gitLastCommit @\gitLastModified;\currfilename}}
+%\fi
+
+%\include{intro}
+
+%\part{Background}
+\include{math-overview}
+\include{probability-overview}
+\include{information-theory}
+%\include{statistical-models}
+\include{ml-basics}
+\include{classification}
+\include{ml-eval}
+\include{neural-nets}
+%\include{sequence-learning}
+\include{deep-networks}
+\include{unsupervised}
+%\include{statistics}
+%\include{formal-languages}
+%%\include{finite-state}
+
+%\part{Basic NLP methods}
+%\include{text-processing}
+%\include{alignment}
+%\include{ngrams}
+%\include{morphology}
+%\include{parsing}
+%\include{cf-parsing}
+%\include{dependency-parsing}
+
+%\part{NLP applications}
+%\include{semantics}
+%\include{unsupervised-nlp}
+%\include{text-classification}
+%\include{document-clustering}
+%\include{wsd}
+%\include{smt}
+
+\printbibliography
+\appendix
+
+\end{document}

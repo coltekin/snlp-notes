@@ -1,0 +1,85 @@
+\chapter{\label{ch:fsa}Finite state automata and regular languages}
+
+The regular languages, the simplest class of languages
+we defined in Chapter~\ref{ch:formal-languages},
+and the corresponding abstract machines, finite state automata (FSA), 
+have many practical uses ranging from circuit design to string search.
+They are also an important tool for computational linguistics.
+In this chapter we will study FSA and regular languages.
+
+%TODO: applications - dictionaries, shallow parsing ...
+
+%TODO: link to regular expressions
+
+\section{Finite state automata}
+
+A finite state automaton is an abstract machine with a finite number of states.
+The machine can be in one of the states in a given time,
+and it changes its sates as it processes an input string
+from a finite alphabet.
+If the machine is in one of final or accepting states at the end of the input,
+it accepts the string.
+As noted earlier, finite state automaton
+recognize and generate regular languages.
+A finite state automaton accepts all and the only strings
+that are in the corresponding regular language.
+
+\begin{marginfigure}
+  \begin{center}
+    \tikzset{external/export next=false}
+    \begin{tikzpicture}[every initial by arrow/.style={thick},
+      ]
+      \node[draw,state,initial,initial text={}] at (0,0) (s0) {0};
+      \node[draw,above right=of s0,state] (s1) {1};
+      \node[draw,below right=of s0,state,accepting] (s2) {2};
+      \draw[->,thick,>=stealth]
+                (s0) edge[above,bend left] node (nl) {b} (s1)
+                (s0) edge[below,bend right] node{a} (s2)
+                (s1) edge[loop above] node{b} (q1);
+      \draw[->,thick,>=stealth]
+                (s1) edge[right,bend left=90] node{c} (s2);
+      \node[blue] at (-1, -1) (ilab) {initial state};
+      \draw[blue,->,shorten >=1pt]  (ilab) to[bend right] (s0);
+      \node[blue] at (-1, 1) (tlab) {transition};
+      \draw[blue,->,shorten >=1pt]  (tlab) to[bend left] (nl.south);
+%      \draw[blue,->,shorten >=1pt]  (tlab) to[bend left] ($(s0)!0.5!(s1)$);
+      \node[blue] at (0, 2) (slab) {state};
+      \draw[blue,->,shorten >=1pt]  (slab.east) to[bend left] (s1.north west);
+      \node[blue] at (0, -2) (flab) {accepting state};
+      \draw[blue,->,shorten >=1pt]  (flab) to[bend right] (s2);
+    \end{tikzpicture}
+  \end{center}
+    \caption{\label{fig:example-fsa}%
+      An example finite-state machine.
+    }
+\end{marginfigure}
+A common way to think about (and represent) an FSA is a directed graph,
+where the nodes correspond to the states,
+and edges are labeled with the symbols from the alphabet.
+Figure~\ref{fig:example-fsa} presents an FSA represented as
+a directed graph.
+The machine starts at the start state (marked with an incoming arrow)
+and moves between the states based on the given input.
+If the machine is in a final state
+(represented as a double circle)at the end of the input,
+the input string is accepted.
+
+\subsection{Deterministic finite automata}
+Formally, a finite state automaton, $M$,
+is a tuple $(\Sigma,Q, q_{0}, F, \Delta)$ with
+
+\begin{itemize}[nosep]
+  \item[$\Sigma$] is the alphabet, a finite set of symbols
+  \item[$Q$] a finite set of states
+  \item[$q_{0}$] is the start state, $q_{0} \in Q$
+  \item[$F$] is the set of final states, $F \subseteq Q$
+  \item[$\Delta$] is a function that takes a state and a symbol in the alphabet,
+    and returns another state ($\Delta: Q\times\Sigma \ra Q$)
+\end{itemize}
+
+The important part of the this definition is the last item,
+translates to the requirement that given a state and a symbol,
+there is only one possible state to go.
+As a result,
+a deterministic automata requires
+exactly one edge labeled by each symbol in the alphabet leaving every state.
